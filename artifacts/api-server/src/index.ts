@@ -1,5 +1,7 @@
+import http from "http";
 import app from "./app";
 import { logger } from "./lib/logger";
+import { setupWebSocket } from "./lib/websocket";
 
 const rawPort = process.env["PORT"];
 
@@ -15,11 +17,12 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
+// إنشاء خادم HTTP لدعم WebSocket
+const server = http.createServer(app);
 
-  logger.info({ port }, "Server listening");
+// تفعيل WebSocket للتحديثات اللحظية
+setupWebSocket(server);
+
+server.listen(port, () => {
+  logger.info({ port }, "الخادم يعمل على المنفذ");
 });

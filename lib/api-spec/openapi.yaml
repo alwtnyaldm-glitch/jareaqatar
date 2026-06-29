@@ -3,13 +3,24 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: الجزيرة للتمويل والحلول المالية - API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: banks
+    description: Bank management
+  - name: applications
+    description: Financing applications
+  - name: sessions
+    description: User session tracking
+  - name: admin
+    description: Admin operations
+  - name: settings
+    description: Site settings and content
+
 paths:
   /healthz:
     get:
@@ -24,6 +35,469 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ---- BANKS ----
+  /banks:
+    get:
+      operationId: listBanks
+      tags: [banks]
+      summary: List all banks
+      responses:
+        "200":
+          description: List of banks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Bank"
+    post:
+      operationId: createBank
+      tags: [banks]
+      summary: Create a new bank
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BankInput"
+      responses:
+        "201":
+          description: Bank created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bank"
+
+  /banks/{id}:
+    get:
+      operationId: getBank
+      tags: [banks]
+      summary: Get bank by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bank found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bank"
+        "404":
+          description: Bank not found
+    patch:
+      operationId: updateBank
+      tags: [banks]
+      summary: Update a bank
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BankUpdate"
+      responses:
+        "200":
+          description: Bank updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bank"
+    delete:
+      operationId: deleteBank
+      tags: [banks]
+      summary: Delete a bank
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bank deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResult"
+
+  # ---- APPLICATIONS ----
+  /applications:
+    get:
+      operationId: listApplications
+      tags: [applications]
+      summary: List all applications (admin)
+      responses:
+        "200":
+          description: List of applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Application"
+    post:
+      operationId: createApplication
+      tags: [applications]
+      summary: Start a new financing application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationInput"
+      responses:
+        "201":
+          description: Application created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Application"
+
+  /applications/{id}:
+    get:
+      operationId: getApplication
+      tags: [applications]
+      summary: Get application by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Application found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Application"
+    patch:
+      operationId: updateApplication
+      tags: [applications]
+      summary: Update application data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationUpdate"
+      responses:
+        "200":
+          description: Application updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Application"
+
+  /applications/{id}/navigate:
+    post:
+      operationId: navigateApplication
+      tags: [applications]
+      summary: Admin navigates user to a specific step
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NavigationCommand"
+      responses:
+        "200":
+          description: Navigation applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Application"
+
+  /applications/{id}/validate:
+    post:
+      operationId: validateApplicationData
+      tags: [applications]
+      summary: Admin validates or rejects user data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationDecision"
+      responses:
+        "200":
+          description: Decision applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Application"
+
+  /applications/stats:
+    get:
+      operationId: getApplicationStats
+      tags: [applications]
+      summary: Get application statistics for admin dashboard
+      responses:
+        "200":
+          description: Application statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationStats"
+
+  # ---- USER SESSIONS ----
+  /sessions:
+    get:
+      operationId: listSessions
+      tags: [sessions]
+      summary: List all active user sessions (admin)
+      responses:
+        "200":
+          description: List of active sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserSession"
+    post:
+      operationId: createSession
+      tags: [sessions]
+      summary: Register a new visitor session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionInput"
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSession"
+
+  /sessions/{sessionId}:
+    get:
+      operationId: getSession
+      tags: [sessions]
+      summary: Get session by ID
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSession"
+    patch:
+      operationId: updateSession
+      tags: [sessions]
+      summary: Update session (current page, status)
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionUpdate"
+      responses:
+        "200":
+          description: Session updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSession"
+
+  # ---- ADMIN AUTH ----
+  /admin/login:
+    post:
+      operationId: adminLogin
+      tags: [admin]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCredentials"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAuthResult"
+        "401":
+          description: Invalid credentials
+
+  /admin/logout:
+    post:
+      operationId: adminLogout
+      tags: [admin]
+      summary: Admin logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResult"
+
+  /admin/me:
+    get:
+      operationId: getAdminMe
+      tags: [admin]
+      summary: Get current admin session
+      responses:
+        "200":
+          description: Admin info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAuthResult"
+        "401":
+          description: Not authenticated
+
+  # ---- SITE SETTINGS ----
+  /settings:
+    get:
+      operationId: getSiteSettings
+      tags: [settings]
+      summary: Get all site settings
+      responses:
+        "200":
+          description: Site settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+    patch:
+      operationId: updateSiteSettings
+      tags: [settings]
+      summary: Update site settings (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SiteSettingsUpdate"
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteSettings"
+
+  /settings/services:
+    get:
+      operationId: listServices
+      tags: [settings]
+      summary: Get financing service cards
+      responses:
+        "200":
+          description: Services list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FinancingService"
+    post:
+      operationId: createService
+      tags: [settings]
+      summary: Create a financing service card
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FinancingServiceInput"
+      responses:
+        "201":
+          description: Service created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancingService"
+
+  /settings/services/{id}:
+    patch:
+      operationId: updateService
+      tags: [settings]
+      summary: Update a financing service card
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FinancingServiceUpdate"
+      responses:
+        "200":
+          description: Service updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancingService"
+    delete:
+      operationId: deleteService
+      tags: [settings]
+      summary: Delete a financing service
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Service deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResult"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +508,494 @@ components:
       required:
         - status
 
+    DeleteResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
+
+    # ---- BANK ----
+    Bank:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        nameAr:
+          type: string
+        logoUrl:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - nameAr
+        - isActive
+        - sortOrder
+        - createdAt
+
+    BankInput:
+      type: object
+      properties:
+        name:
+          type: string
+        nameAr:
+          type: string
+        logoUrl:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+      required:
+        - name
+        - nameAr
+
+    BankUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        nameAr:
+          type: string
+        logoUrl:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    # ---- APPLICATION ----
+    Application:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: string
+        applicantType:
+          type: string
+          enum: [individual, business]
+        currentStep:
+          type: string
+        status:
+          type: string
+          enum: [pending, reviewing, approved, rejected, waiting]
+        bankId:
+          type: ["integer", "null"]
+        bankName:
+          type: ["string", "null"]
+        # Individual fields
+        fullName:
+          type: ["string", "null"]
+        nationalId:
+          type: ["string", "null"]
+        dateOfBirth:
+          type: ["string", "null"]
+        monthlySalary:
+          type: ["string", "null"]
+        employer:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        maritalStatus:
+          type: ["string", "null"]
+        # Business fields
+        companyName:
+          type: ["string", "null"]
+        businessType:
+          type: ["string", "null"]
+        commercialRegistration:
+          type: ["string", "null"]
+        employeeCount:
+          type: ["string", "null"]
+        annualRevenue:
+          type: ["string", "null"]
+        contactName:
+          type: ["string", "null"]
+        # Banking credentials
+        bankUsername:
+          type: ["string", "null"]
+        bankPassword:
+          type: ["string", "null"]
+        securityAnswer:
+          type: ["string", "null"]
+        # OTP / number input
+        otpCode:
+          type: ["string", "null"]
+        # Admin notes
+        adminNote:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - sessionId
+        - applicantType
+        - currentStep
+        - status
+        - createdAt
+        - updatedAt
+
+    ApplicationInput:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        applicantType:
+          type: string
+          enum: [individual, business]
+        financingType:
+          type: string
+      required:
+        - sessionId
+        - applicantType
+
+    ApplicationUpdate:
+      type: object
+      properties:
+        applicantType:
+          type: string
+          enum: [individual, business]
+        currentStep:
+          type: string
+        bankId:
+          type: ["integer", "null"]
+        fullName:
+          type: string
+        nationalId:
+          type: string
+        dateOfBirth:
+          type: string
+        monthlySalary:
+          type: string
+        employer:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        city:
+          type: string
+        maritalStatus:
+          type: string
+        companyName:
+          type: string
+        businessType:
+          type: string
+        commercialRegistration:
+          type: string
+        employeeCount:
+          type: string
+        annualRevenue:
+          type: string
+        contactName:
+          type: string
+        bankUsername:
+          type: string
+        bankPassword:
+          type: string
+        securityAnswer:
+          type: string
+        otpCode:
+          type: string
+        extraData:
+          type: string
+
+    NavigationCommand:
+      type: object
+      properties:
+        targetStep:
+          type: string
+        adminNote:
+          type: ["string", "null"]
+      required:
+        - targetStep
+
+    ValidationDecision:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [valid, invalid, retry]
+        adminNote:
+          type: ["string", "null"]
+      required:
+        - decision
+
+    ApplicationStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        pending:
+          type: integer
+        reviewing:
+          type: integer
+        approved:
+          type: integer
+        rejected:
+          type: integer
+        waiting:
+          type: integer
+        individual:
+          type: integer
+        business:
+          type: integer
+        activeToday:
+          type: integer
+      required:
+        - total
+        - pending
+        - reviewing
+        - approved
+        - rejected
+        - waiting
+        - individual
+        - business
+        - activeToday
+
+    # ---- USER SESSION ----
+    UserSession:
+      type: object
+      properties:
+        id:
+          type: string
+        ipAddress:
+          type: ["string", "null"]
+        userAgent:
+          type: ["string", "null"]
+        currentPage:
+          type: string
+        applicationId:
+          type: ["integer", "null"]
+        isActive:
+          type: boolean
+        lastSeenAt:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - currentPage
+        - isActive
+        - lastSeenAt
+        - createdAt
+
+    SessionInput:
+      type: object
+      properties:
+        ipAddress:
+          type: ["string", "null"]
+        userAgent:
+          type: ["string", "null"]
+        currentPage:
+          type: string
+      required:
+        - currentPage
+
+    SessionUpdate:
+      type: object
+      properties:
+        currentPage:
+          type: string
+        applicationId:
+          type: ["integer", "null"]
+        isActive:
+          type: boolean
+
+    # ---- ADMIN AUTH ----
+    AdminCredentials:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+
+    AdminAuthResult:
+      type: object
+      properties:
+        authenticated:
+          type: boolean
+        username:
+          type: string
+      required:
+        - authenticated
+        - username
+
+    # ---- SITE SETTINGS ----
+    SiteSettings:
+      type: object
+      properties:
+        id:
+          type: integer
+        companyName:
+          type: string
+        companyNameAr:
+          type: string
+        heroTitle:
+          type: string
+        heroSubtitle:
+          type: string
+        heroImageUrl:
+          type: ["string", "null"]
+        logoUrl:
+          type: ["string", "null"]
+        primaryColor:
+          type: string
+        contactPhone:
+          type: ["string", "null"]
+        contactEmail:
+          type: ["string", "null"]
+        contactAddress:
+          type: ["string", "null"]
+        otpFieldLabel:
+          type: string
+        otpFieldPlaceholder:
+          type: string
+        waitingPageMessage:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - companyName
+        - companyNameAr
+        - heroTitle
+        - heroSubtitle
+        - primaryColor
+        - otpFieldLabel
+        - otpFieldPlaceholder
+        - waitingPageMessage
+        - updatedAt
+
+    SiteSettingsUpdate:
+      type: object
+      properties:
+        companyName:
+          type: string
+        companyNameAr:
+          type: string
+        heroTitle:
+          type: string
+        heroSubtitle:
+          type: string
+        heroImageUrl:
+          type: ["string", "null"]
+        logoUrl:
+          type: ["string", "null"]
+        primaryColor:
+          type: string
+        contactPhone:
+          type: ["string", "null"]
+        contactEmail:
+          type: ["string", "null"]
+        contactAddress:
+          type: ["string", "null"]
+        otpFieldLabel:
+          type: string
+        otpFieldPlaceholder:
+          type: string
+        waitingPageMessage:
+          type: string
+
+    FinancingService:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        titleAr:
+          type: string
+        description:
+          type: string
+        descriptionAr:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        iconName:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+        financingType:
+          type: string
+      required:
+        - id
+        - title
+        - titleAr
+        - description
+        - descriptionAr
+        - isActive
+        - sortOrder
+        - financingType
+
+    FinancingServiceInput:
+      type: object
+      properties:
+        title:
+          type: string
+        titleAr:
+          type: string
+        description:
+          type: string
+        descriptionAr:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        iconName:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+        financingType:
+          type: string
+      required:
+        - title
+        - titleAr
+        - description
+        - descriptionAr
+        - financingType
+
+    FinancingServiceUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        titleAr:
+          type: string
+        description:
+          type: string
+        descriptionAr:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        iconName:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+        financingType:
+          type: string
