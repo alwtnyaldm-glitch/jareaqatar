@@ -12,7 +12,7 @@ export default function NotificationModal() {
         <div className="w-16 h-16 navy-gradient rounded-2xl flex items-center justify-center text-white mx-auto mb-6">
           <MessageCircle className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-black text-primary mb-4">رسالة من الإدارة</h2>
+        <h2 className="text-xl font-black text-primary mb-4">اشعار مهم  </h2>
         <p className="text-foreground leading-relaxed text-lg mb-8 whitespace-pre-wrap">{notification}</p>
         <button
           onClick={clearNotification}
