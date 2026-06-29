@@ -240,6 +240,7 @@ export const UpdateApplicationBody = zod.object({
   "applicantType": zod.enum(['individual', 'business']).optional(),
   "currentStep": zod.string().optional(),
   "bankId": zod.number().nullish(),
+  "bankName": zod.string().nullish(),
   "fullName": zod.string().optional(),
   "nationalId": zod.string().optional(),
   "dateOfBirth": zod.string().optional(),
