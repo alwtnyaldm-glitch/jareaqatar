@@ -614,8 +614,13 @@ export default function AdminDashboardPage() {
             <div className="divide-y">
               {applications.map((app) => {
                 const isExpanded = expandedRows.has(app.id);
+                // الاسم: نحاول من السجل الحالي أولاً، ثم من كاش النسخ كاحتياط
+                const cachedVersions = versionCache[app.id] || [];
                 const name =
-                  app.fullName || app.companyName || app.contactName || "—";
+                  app.fullName || app.companyName || app.contactName ||
+                  (cachedVersions.find((v) => v.fullName)?.fullName as string | undefined) ||
+                  (cachedVersions.find((v) => v.companyName)?.companyName as string | undefined) ||
+                  "";
                 return (
                   <div
                     key={app.id}
@@ -635,8 +640,8 @@ export default function AdminDashboardPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-sm text-foreground truncate">
-                            {name}
+                          <span className={`font-bold text-sm truncate ${name ? "text-foreground" : "text-muted-foreground italic"}`}>
+                            {name || "بانتظار بيانات العميل..."}
                           </span>
                           {/* مؤشر الحضور */}
                           {(() => {
