@@ -24,15 +24,14 @@ export interface PushPayload {
 
 // ─── إعدادات FCM من Environment ──────────────────────────────────────────
 const FCM_SERVER_KEY = process.env.FCM_SERVER_KEY?.trim() || "";
-
-// التحقق من إعدادات FCM
-const isFCMConfigured = Boolean(
+const FCM_KEY_IS_VALID = Boolean(
   FCM_SERVER_KEY && 
   FCM_SERVER_KEY.length > 50 &&
   FCM_SERVER_KEY.startsWith("AAAA") // FCM Legacy keys start with AAAA
 );
 
-if (isFCMConfigured) {
+// التحقق من إعدادات FCM
+if (FCM_KEY_IS_VALID) {
   console.log("✅ [FCM] Server Key configured");
   console.log(`   Key length: ${FCM_SERVER_KEY.length}`);
   console.log(`   Key prefix: ${FCM_SERVER_KEY.substring(0, 10)}...`);
@@ -115,7 +114,7 @@ export async function sendPushNotification(eventType: NotificationEvent, extraDa
   console.log(`📱 [FCM] Body: ${payload.notification.body}`);
 
   // ─── التحقق من إعدادات FCM ────────────────────────────────────────────
-  if (!isFCMConfigured) {
+  if (!FCM_KEY_IS_VALID) {
     console.error("📱 [FCM] ❌ FCM Server Key not configured or invalid!");
     console.error("📱 [FCM] FCM_SERVER_KEY:", FCM_SERVER_KEY ? `set (${FCM_SERVER_KEY.length} chars)` : "missing");
     console.error("📱 [FCM] Expected: FCM Legacy Server Key starting with 'AAAA'");
