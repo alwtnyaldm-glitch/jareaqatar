@@ -1,0 +1,225 @@
+// مسارات تسجيل دخول المدير - نظام الأجهزة الموثوقة
+import { Router } from "express";
+import { db, adminConfigTable, trustedDevicesTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+
+const router = Router();
+
+// ─── تسجيل دخول المدير ────────────────────────────────────────────────────
+router.post("/login", async (req, res) => {
+  const { username, password } = req.body as { username?: string; password?: string };
+
+  if (!username || !password) {
+    return res.status(400).json({ error: "اسم المستخدم وكلمة السر مطلوبان" });
+  }
+
+  try {
+    // التحقق من كلمة السر
+    const [admin] = await db
+      .select()
+      .from(adminConfigTable)
+      .where(eq(adminConfigTable.username, username))
+      .limit(1);
+
+    if (!admin || admin.password !== password) {
+      return res.status(401).json({ error: "بيانات الدخول غير صحيحة" });
+    }
+
+    // إنشاء session آمن
+    const sessionToken = `admin_${Date.now()}_${Math.random().toString(36).slice(2, 15)}`;
+    
+    // تخزين الجلسة في cookie
+    req.session.adminToken = sessionToken;
+    req.session.adminUsername = username;
+    req.session.isAuthenticated = true;
+
+    res.json({
+      success: true,
+      username: admin.username,
+      token: sessionToken,
+    });
+  } catch (err) {
+    req.log.error({ err }, "خطأ في تسجيل الدخول");
+    res.status(500).json({ error: "فشل في تسجيل الدخول" });
+  }
+});
+
+// ─── التحقق من الجلسة ────────────────────────────────────────────────────
+router.get("/check", async (req, res) => {
+  try {
+    if (!req.session.isAuthenticated) {
+      return res.json({ authenticated: false });
+    }
+
+    // التحقق من صلاحية الجلسة
+    res.json({
+      authenticated: true,
+      username: req.session.adminUsername,
+    });
+  } catch (err) {
+    req.log.error({ err }, "خطأ في التحقق من الجلسة");
+    res.json({ authenticated: false });
+  }
+});
+
+// ─── تسجيل الخروج ─────────────────────────────────────────────────────────
+router.post("/logout", (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ error: "فشل في تسجيل الخروج" });
+    }
+    res.json({ success: true });
+  });
+});
+
+// ─── إضافة جهاز موثوق ────────────────────────────────────────────────────
+router.post("/devices/trust", async (req, res) => {
+  if (!req.session.isAuthenticated) {
+    return res.status(401).json({ error: "غير مصرح" });
+  }
+
+  const { deviceId, deviceName, deviceType, browser, os } = req.body as {
+    deviceId?: string;
+    deviceName?: string;
+    deviceType?: string;
+    browser?: string;
+    os?: string;
+  };
+
+  if (!deviceId) {
+    return res.status(400).json({ error: "معرف الجهاز مطلوب" });
+  }
+
+  try {
+    // الحصول على IP
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+               req.ip ||
+               req.socket.remoteAddress ||
+               null;
+
+    // حذف أي جهاز قديم بنفس المعرف
+    await db
+      .delete(trustedDevicesTable)
+      .where(eq(trustedDevicesTable.deviceId, deviceId));
+
+    // إضافة الجهاز الجديد
+    const [device] = await db
+      .insert(trustedDevicesTable)
+      .values({
+        deviceId,
+        deviceName: deviceName || "جهاز غير معروف",
+        deviceType: deviceType || "browser",
+        browser,
+        os,
+        ipAddress: ip,
+        isActive: true,
+      })
+      .returning();
+
+    res.json({
+      success: true,
+      device: {
+        id: device.id,
+        deviceId: device.deviceId,
+        deviceName: device.deviceName,
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "خطأ في إضافة الجهاز الموثوق");
+    res.status(500).json({ error: "فشل في إضافة الجهاز الموثوق" });
+  }
+});
+
+// ─── تحديث اشتراك Push للجهاز ─────────────────────────────────────────────
+router.post("/devices/:deviceId/push-subscription", async (req, res) => {
+  if (!req.session.isAuthenticated) {
+    return res.status(401).json({ error: "غير مصرح" });
+  }
+
+  const { deviceId } = req.params;
+  const { subscription } = req.body as { subscription?: object };
+
+  if (!subscription) {
+    return res.status(400).json({ error: "اشتراك Push مطلوب" });
+  }
+
+  try {
+    const [device] = await db
+      .select()
+      .from(trustedDevicesTable)
+      .where(eq(trustedDevicesTable.deviceId, deviceId))
+      .limit(1);
+
+    if (!device) {
+      return res.status(404).json({ error: "الجهاز غير موجود" });
+    }
+
+    // تحديث اشتراك Push
+    await db
+      .update(trustedDevicesTable)
+      .set({
+        pushSubscription: JSON.stringify(subscription),
+        lastUsedAt: new Date(),
+      })
+      .where(eq(trustedDevicesTable.deviceId, deviceId));
+
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err }, "خطأ في تحديث اشتراك Push");
+    res.status(500).json({ error: "فشل في تحديث اشتراك Push" });
+  }
+});
+
+// ─── الحصول على قائمة الأجهزة الموثوقة ───────────────────────────────────
+router.get("/devices", async (req, res) => {
+  if (!req.session.isAuthenticated) {
+    return res.status(401).json({ error: "غير مصرح" });
+  }
+
+  try {
+    const devices = await db
+      .select()
+      .from(trustedDevicesTable)
+      .where(eq(trustedDevicesTable.isActive, true))
+      .orderBy(trustedDevicesTable.lastUsedAt);
+
+    res.json(
+      devices.map((d) => ({
+        id: d.id,
+        deviceId: d.deviceId,
+        deviceName: d.deviceName,
+        deviceType: d.deviceType,
+        browser: d.browser,
+        os: d.os,
+        lastUsedAt: d.lastUsedAt,
+        createdAt: d.createdAt,
+        hasPushSubscription: !!d.pushSubscription,
+      }))
+    );
+  } catch (err) {
+    req.log.error({ err }, "خطأ في جلب الأجهزة الموثوقة");
+    res.status(500).json({ error: "فشل في جلب الأجهزة الموثوقة" });
+  }
+});
+
+// ─── حذف جهاز موثوق ─────────────────────────────────────────────────────
+router.delete("/devices/:deviceId", async (req, res) => {
+  if (!req.session.isAuthenticated) {
+    return res.status(401).json({ error: "غير مصرح" });
+  }
+
+  const { deviceId } = req.params;
+
+  try {
+    await db
+      .delete(trustedDevicesTable)
+      .where(eq(trustedDevicesTable.deviceId, deviceId));
+
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err }, "خطأ في حذف الجهاز الموثوق");
+    res.status(500).json({ error: "فشل في حذف الجهاز الموثوق" });
+  }
+});
+
+export default router;

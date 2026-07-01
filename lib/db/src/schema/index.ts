@@ -7,3 +7,4 @@ export * from "./financing_services";
 export * from "./page_contents";
 export * from "./custom_fields";
 export * from "./admin_config";
+export * from "./trusted_devices";

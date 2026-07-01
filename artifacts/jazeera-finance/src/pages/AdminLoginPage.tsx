@@ -1,8 +1,45 @@
-// صفحة تسجيل دخول المدير
-import { useState } from "react";
+// صفحة تسجيل دخول المدير مع الأجهزة الموثوقة
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAdminLogin, useGetAdminMe } from "@workspace/api-client-react";
-import { Building2, Lock, User, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { Building2, Lock, User, Eye, EyeOff, ShieldCheck, Smartphone, CheckCircle } from "lucide-react";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+// ─── توليد معرف جهاز فريد ────────────────────────────────────────────────
+function getDeviceId(): string {
+  const stored = localStorage.getItem("deviceId");
+  if (stored) return stored;
+  
+  const newId = `device_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+  localStorage.setItem("deviceId", newId);
+  return newId;
+}
+
+// ─── معلومات الجهاز ──────────────────────────────────────────────────────
+function getDeviceInfo() {
+  const ua = navigator.userAgent;
+  let browser = "Unknown";
+  let os = "Unknown";
+  
+  if (ua.includes("Chrome")) browser = "Chrome";
+  else if (ua.includes("Firefox")) browser = "Firefox";
+  else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
+  else if (ua.includes("Edge")) browser = "Edge";
+  
+  if (ua.includes("Windows")) os = "Windows";
+  else if (ua.includes("Mac")) os = "macOS";
+  else if (ua.includes("Linux")) os = "Linux";
+  else if (ua.includes("Android")) os = "Android";
+  else if (ua.includes("iPhone") || ua.includes("iPad")) os = "iOS";
+  
+  return {
+    browser,
+    os,
+    deviceName: `${browser} على ${os}`,
+    deviceType: /mobile|android|iphone|ipad/i.test(ua) ? "mobile" : "desktop",
+  };
+}
 
 export default function AdminLoginPage() {
   const [, navigate] = useLocation();
@@ -10,7 +47,30 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
+  const [trusting, setTrusting] = useState(false);
+  const [trusted, setTrusted] = useState(false);
   const login = useAdminLogin();
+  const deviceId = getDeviceId();
+  const deviceInfo = getDeviceInfo();
+
+  // التحقق من حالة الجهاز الموثوق
+  useEffect(() => {
+    const checkTrusted = async () => {
+      try {
+        const res = await fetch(`${BASE}/api/auth/devices`, {
+          credentials: "include",
+        });
+        if (res.ok) {
+          const devices = await res.json();
+          const isTrusted = devices.some((d: { deviceId: string }) => d.deviceId === deviceId);
+          setTrusted(isTrusted);
+        }
+      } catch {
+        // تجاهل
+      }
+    };
+    checkTrusted();
+  }, []);
 
   // التحقق من وجود جلسة إدارية نشطة
   useGetAdminMe({
@@ -24,13 +84,70 @@ export default function AdminLoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setTrusting(true);
+    
     try {
       await login.mutateAsync({ data: { username, password } });
+      
+      // تسجيل الجهاز كجهاز موثوق
+      await fetch(`${BASE}/api/auth/devices/trust`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deviceId,
+          deviceName: deviceInfo.deviceName,
+          deviceType: deviceInfo.deviceType,
+          browser: deviceInfo.browser,
+          os: deviceInfo.os,
+        }),
+      });
+      
+      // الاشتراك في Push Notifications
+      if ("Notification" in window && Notification.permission === "granted") {
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          const vapidRes = await fetch(`${BASE}/api/push/vapid-public-key`);
+          if (vapidRes.ok) {
+            const { publicKey } = await vapidRes.json();
+            if (publicKey) {
+              const sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicKey),
+              });
+              
+              await fetch(`${BASE}/api/auth/devices/${deviceId}/push-subscription`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ subscription: sub.toJSON() }),
+              });
+            }
+          }
+        } catch {
+          // تجاهل أخطاء Push
+        }
+      }
+      
+      setTrusted(true);
       navigate("/admin/dashboard");
     } catch {
       setError("اسم المستخدم أو كلمة المرور غير صحيحة");
+    } finally {
+      setTrusting(false);
     }
   };
+
+  function urlBase64ToUint8Array(base64String: string): Uint8Array {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
 
   return (
     <div
@@ -124,6 +241,35 @@ export default function AdminLoginPage() {
           <p className="text-center text-xs text-muted-foreground mt-6">
             admin / يجب ادخال كلمة المرور بشكل صحيح للدخول
           </p>
+
+          {/* مؤشر الجهاز الموثوق */}
+          {trusted && (
+            <div className="mt-4 bg-green-500/10 border border-green-500/20 rounded-xl p-3 flex items-center gap-3">
+              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-green-400">جهاز موثوق</p>
+                <p className="text-xs text-green-400/70">{deviceInfo.deviceName}</p>
+              </div>
+            </div>
+          )}
+
+          {/* طلب إذن الإشعارات */}
+          {!trusted && "Notification" in window && Notification.permission === "default" && (
+            <button
+              type="button"
+              onClick={async () => {
+                const perm = await Notification.requestPermission();
+                if (perm === "granted") {
+                  // طلب التحديث
+                  setError("");
+                }
+              }}
+              className="mt-4 w-full py-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400 text-sm font-medium hover:bg-blue-500/20 transition flex items-center justify-center gap-2"
+            >
+              <Smartphone className="w-4 h-4" />
+              تفعيل الإشعارات على هذا الجهاز
+            </button>
+          )}
         </div>
 
         <div className="text-center mt-6">

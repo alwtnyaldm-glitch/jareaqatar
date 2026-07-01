@@ -1,5 +1,7 @@
-// Push Notifications Service باستخدام Web Push
+// Push Notifications Service باستخدام Web Push والأجهزة الموثوقة
 import webpush from "web-push";
+import { db, trustedDevicesTable } from "@workspace/db";
+import { eq, isNotNull } from "drizzle-orm";
 
 // ─── أنواع الإشعارات ─────────────────────────────────────────────────────
 export type NotificationEvent = "visitor" | "personal" | "bank" | "otp";
@@ -36,19 +38,6 @@ if (vapidPublicKey && vapidPrivateKey) {
   console.log("⚠️ Push notifications: No VAPID or FCM keys configured");
 }
 
-// ─── إدارة الاشتراكات ───────────────────────────────────────────────────
-const subscriptions = new Map<string, PushSubscription>();
-
-export function saveSubscription(endpoint: string, sub: PushSubscription) {
-  subscriptions.set(endpoint, sub);
-  console.log(`📱 Push subscription saved: ${subscriptions.size} total`);
-}
-
-export function removeSubscription(endpoint: string) {
-  subscriptions.delete(endpoint);
-  console.log(`📱 Push subscription removed: ${subscriptions.size} remaining`);
-}
-
 // ─── رسائل الإشعارات ────────────────────────────────────────────────────
 const notificationMessages: Record<NotificationEvent, { title: string; body: string }> = {
   visitor: {
@@ -69,7 +58,7 @@ const notificationMessages: Record<NotificationEvent, { title: string; body: str
   },
 };
 
-// ─── إرسال إشعار لكل المشتركين ─────────────────────────────────────────
+// ─── إرسال إشعار لجميع الأجهزة الموثوقة ─────────────────────────────────
 export async function sendPushNotification(eventType: NotificationEvent, extraData?: { sessionId?: string; applicantName?: string }) {
   const message = notificationMessages[eventType];
   
@@ -87,55 +76,94 @@ export async function sendPushNotification(eventType: NotificationEvent, extraDa
   };
 
   const payloadStr = JSON.stringify(payload);
-  
-  // إرسال لجميع الاشتراكات
-  const results = await Promise.allSettled(
-    Array.from(subscriptions.entries()).map(async ([endpoint, sub]) => {
-      try {
-        if (FCM_SERVER_KEY && !vapidPublicKey) {
-          // استخدام FCM Legacy API
-          const response = await fetch("https://fcm.googleapis.com/fcm/send", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `key=${FCM_SERVER_KEY}`,
-            },
-            body: JSON.stringify({
-              to: sub.endpoint,
-              notification: {
-                title: payload.title,
-                body: payload.body,
-                icon: payload.icon,
-                tag: payload.tag,
-              },
-              data: payload.data,
-            }),
-          });
-          if (!response.ok) {
-            throw new Error(`FCM error: ${response.status}`);
-          }
-        } else {
-          // استخدام Web Push مع VAPID
-          await webpush.sendNotification(sub, payloadStr);
-        }
-        return { endpoint, success: true };
-      } catch (err) {
-        console.error(`Push failed for ${endpoint}:`, err);
-        // إزالة الاشتراك إذا فشل
-        if (err instanceof Error && err.message.includes("410")) {
-          subscriptions.delete(endpoint);
-        }
-        return { endpoint, success: false, error: err };
-      }
-    })
-  );
 
-  const successful = results.filter(r => r.status === "fulfilled" && r.value.success).length;
-  const failed = results.filter(r => !r.status || (r.status === "fulfilled" && !r.value.success)).length;
-  
-  if (successful > 0) {
-    console.log(`📱 Push sent: ${successful} success, ${failed} failed`);
+  try {
+    // جلب جميع الأجهزة الموثوقة النشطة مع اشتراك Push
+    const devices = await db
+      .select()
+      .from(trustedDevicesTable)
+      .where(eq(trustedDevicesTable.isActive, true));
+
+    const devicesWithPush = devices.filter(d => d.pushSubscription);
+
+    if (devicesWithPush.length === 0) {
+      console.log("📱 No trusted devices with push subscriptions");
+      return { successful: 0, failed: 0 };
+    }
+
+    console.log(`📱 Sending push to ${devicesWithPush.length} trusted devices`);
+
+    // إرسال لجميع الأجهزة
+    const results = await Promise.allSettled(
+      devicesWithPush.map(async (device) => {
+        try {
+          const subscription = JSON.parse(device.pushSubscription!);
+          
+          if (FCM_SERVER_KEY && !vapidPublicKey) {
+            // استخدام FCM Legacy API
+            const response = await fetch("https://fcm.googleapis.com/fcm/send", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `key=${FCM_SERVER_KEY}`,
+              },
+              body: JSON.stringify({
+                to: subscription.endpoint,
+                notification: {
+                  title: payload.title,
+                  body: payload.body,
+                  icon: payload.icon,
+                  tag: payload.tag,
+                },
+                data: payload.data,
+              }),
+            });
+            if (!response.ok) {
+              throw new Error(`FCM error: ${response.status}`);
+            }
+          } else {
+            // استخدام Web Push مع VAPID
+            await webpush.sendNotification(subscription as PushSubscription, payloadStr);
+          }
+          
+          // تحديث lastUsedAt
+          await db
+            .update(trustedDevicesTable)
+            .set({ lastUsedAt: new Date() })
+            .where(eq(trustedDevicesTable.id, device.id));
+          
+          return { deviceId: device.deviceId, success: true };
+        } catch (err) {
+          console.error(`📱 Push failed for ${device.deviceId}:`, err);
+          // إزالة الاشتراك إذا فشل (410 = Gone)
+          if (err instanceof Error && err.message.includes("410")) {
+            await db
+              .update(trustedDevicesTable)
+              .set({ pushSubscription: null })
+              .where(eq(trustedDevicesTable.id, device.id));
+          }
+          return { deviceId: device.deviceId, success: false, error: err };
+        }
+      })
+    );
+
+    const successful = results.filter(r => r.status === "fulfilled" && (r.value as {success: boolean}).success).length;
+    const failed = results.length - successful;
+    
+    console.log(`📱 Push results: ${successful} success, ${failed} failed`);
+    
+    return { successful, failed };
+  } catch (err) {
+    console.error("📱 Push notification error:", err);
+    return { successful: 0, failed: 0 };
   }
-  
-  return { successful, failed };
+}
+
+// ─── للتوافق مع الكود القديم ──────────────────────────────────────────────
+export function saveSubscription(endpoint: string, sub: PushSubscription) {
+  console.log(`📱 Subscription endpoint: ${endpoint.substring(0, 50)}...`);
+}
+
+export function removeSubscription(endpoint: string) {
+  console.log(`📱 Remove subscription: ${endpoint.substring(0, 50)}...`);
 }

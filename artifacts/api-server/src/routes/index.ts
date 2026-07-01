@@ -9,6 +9,7 @@ import settingsRouter from "./settings";
 import pageContentsRouter from "./page_contents";
 import customFieldsRouter from "./custom_fields";
 import pushRouter from "./push";
+import authRouter from "./auth";
 
 const router: IRouter = Router();
 
@@ -21,5 +22,6 @@ router.use("/settings", settingsRouter);
 router.use("/page-contents", pageContentsRouter);
 router.use("/custom-fields", customFieldsRouter);
 router.use("/push", pushRouter);
+router.use("/auth", authRouter);
 
 export default router;
