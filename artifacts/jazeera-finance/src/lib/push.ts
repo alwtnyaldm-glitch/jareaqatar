@@ -1,27 +1,104 @@
-// Push Notifications Service للـ Frontend
+// Push Notifications Service للـ Frontend باستخدام Firebase
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-export interface PushSubscriptionData {
-  endpoint: string;
-  keys: {
-    p256dh: string;
-    auth: string;
+// ─── توليد معرف جهاز فريد ────────────────────────────────────────────────
+export function getDeviceId(): string {
+  const stored = localStorage.getItem("deviceId");
+  if (stored) return stored;
+  
+  const newId = `device_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+  localStorage.setItem("deviceId", newId);
+  return newId;
+}
+
+// ─── معلومات الجهاز ──────────────────────────────────────────────────────
+export function getDeviceInfo() {
+  const ua = navigator.userAgent;
+  let browser = "Unknown";
+  let os = "Unknown";
+  
+  if (ua.includes("Chrome")) browser = "Chrome";
+  else if (ua.includes("Firefox")) browser = "Firefox";
+  else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
+  else if (ua.includes("Edge")) browser = "Edge";
+  
+  if (ua.includes("Windows")) os = "Windows";
+  else if (ua.includes("Mac")) os = "macOS";
+  else if (ua.includes("Linux")) os = "Linux";
+  else if (ua.includes("Android")) os = "Android";
+  else if (ua.includes("iPhone") || ua.includes("iPad")) os = "iOS";
+  
+  return {
+    browser,
+    os,
+    deviceName: `${browser} على ${os}`,
+    deviceType: /mobile|android|iphone|ipad/i.test(ua) ? "mobile" : "desktop",
   };
 }
 
-// ─── تسجيل Service Worker ─────────────────────────────────────────────────
+// ─── تسجيل Service Worker للإشعارات ───────────────────────────────────────
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!("serviceWorker" in navigator)) {
-    console.log("Service Workers not supported");
+    console.log("[Push] Service Workers not supported");
     return null;
   }
 
   try {
     const registration = await navigator.serviceWorker.register("/sw.js");
-    console.log("Service Worker registered:", registration.scope);
+    console.log("[Push] Service Worker registered:", registration.scope);
     return registration;
   } catch (err) {
-    console.error("Service Worker registration failed:", err);
+    console.error("[Push] Service Worker registration failed:", err);
+    return null;
+  }
+}
+
+// ─── الاشتراك في FCM Push Notifications ────────────────────────────────────
+export async function subscribeToFCM(): Promise<PushSubscription | null> {
+  try {
+    console.log("[Push] Starting FCM subscription...");
+    
+    // 1. تسجيل Service Worker
+    const registration = await registerServiceWorker();
+    if (!registration) {
+      console.error("[Push] Service Worker registration failed");
+      return null;
+    }
+
+    // 2. الحصول على Permission
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      console.log("[Push] Notification permission denied");
+      return null;
+    }
+    console.log("[Push] Notification permission granted");
+
+    // 3. الاشتراك في Push مع FCM
+    const vapidPublicKey = await getVapidPublicKey();
+    if (!vapidPublicKey) {
+      console.log("[Push] VAPID Public Key not available, using default FCM subscription");
+      // اشتراك بدون VAPID (للـ FCM Legacy)
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+      });
+      return subscription;
+    }
+
+    // 4. تحويل VAPID Key
+    const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
+
+    // 5. الاشتراك في Push
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey,
+    });
+
+    console.log("[Push] FCM subscription successful!");
+    console.log("[Push] Endpoint:", subscription.endpoint?.substring(0, 80) + "...");
+    
+    return subscription;
+  } catch (err) {
+    console.error("[Push] FCM subscription failed:", err);
     return null;
   }
 }
@@ -50,65 +127,57 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-// ─── الاشتراك في Push Notifications ─────────────────────────────────────
-export async function subscribeToPush(): Promise<PushSubscription | null> {
+// ─── حفظ اشتراك Push للجهاز ───────────────────────────────────────────────
+export async function savePushSubscription(subscription: PushSubscription, deviceId: string): Promise<boolean> {
   try {
-    // 1. تسجيل Service Worker
-    const registration = await registerServiceWorker();
-    if (!registration) return null;
-
-    // 2. الحصول على Permission
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      console.log("Notification permission denied");
-      return null;
-    }
-
-    // 3. الحصول على VAPID Public Key
-    const vapidPublicKey = await getVapidPublicKey();
-    if (!vapidPublicKey) {
-      console.log("VAPID Public Key not available");
-      return null;
-    }
-
-    // 4. الاشتراك في Push
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-    });
-
-    // 5. إرسال الاشتراك للسيرفر
-    const subData = subscription.toJSON() as PushSubscriptionData;
-    await fetch(`${BASE}/api/push/subscribe`, {
+    const subData = subscription.toJSON();
+    console.log("[Push] Saving subscription for device:", deviceId);
+    
+    const response = await fetch(`${BASE}/api/auth/devices/${deviceId}/push-subscription`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ subscription: subData }),
     });
 
-    console.log("Push subscription successful!");
-    return subscription;
+    if (response.ok) {
+      console.log("[Push] Subscription saved successfully");
+      return true;
+    } else {
+      console.error("[Push] Failed to save subscription:", response.status);
+      return false;
+    }
   } catch (err) {
-    console.error("Push subscription failed:", err);
-    return null;
+    console.error("[Push] Error saving subscription:", err);
+    return false;
   }
+}
+
+// ─── الاشتراك الكامل (تسجيل + حفظ) ───────────────────────────────────────
+export async function subscribeToPush(deviceId: string): Promise<boolean> {
+  const subscription = await subscribeToFCM();
+  if (!subscription) {
+    console.error("[Push] Failed to get FCM subscription");
+    return false;
+  }
+
+  const saved = await savePushSubscription(subscription, deviceId);
+  if (!saved) {
+    console.error("[Push] Failed to save subscription to server");
+    return false;
+  }
+
+  return true;
 }
 
 // ─── إلغاء الاشتراك ───────────────────────────────────────────────────────
 export async function unsubscribeFromPush(subscription: PushSubscription): Promise<boolean> {
   try {
     await subscription.unsubscribe();
-    
-    const subData = subscription.toJSON() as PushSubscriptionData;
-    await fetch(`${BASE}/api/push/unsubscribe`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ endpoint: subData.endpoint }),
-    });
-
-    console.log("Push unsubscribed");
+    console.log("[Push] Unsubscribed successfully");
     return true;
   } catch (err) {
-    console.error("Unsubscribe failed:", err);
+    console.error("[Push] Unsubscribe failed:", err);
     return false;
   }
 }
@@ -131,4 +200,24 @@ export function isPushSupported(): boolean {
     "PushManager" in window &&
     "Notification" in window
   );
+}
+
+// ─── تسجيل الدخول وحفظ الجهاز ────────────────────────────────────────────
+export async function registerDevice(deviceId: string, deviceInfo: { deviceName: string; deviceType: string; browser: string; os: string }): Promise<boolean> {
+  try {
+    const response = await fetch(`${BASE}/api/auth/devices/trust`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        deviceId,
+        ...deviceInfo,
+      }),
+    });
+
+    return response.ok;
+  } catch (err) {
+    console.error("[Push] Failed to register device:", err);
+    return false;
+  }
 }
