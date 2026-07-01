@@ -356,10 +356,10 @@ export default function AdminLoginPage() {
 
             <button
               type="submit"
-              disabled={login.isPending}
+              disabled={trusting}
               className="w-full navy-gradient text-white py-4 rounded-xl font-bold text-lg hover:opacity-90 transition-opacity disabled:opacity-50 mt-2"
             >
-              {login.isPending ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
+              {trusting ? "جاري التسجيل..." : "تسجيل الدخول"}
             </button>
           </form>
 
