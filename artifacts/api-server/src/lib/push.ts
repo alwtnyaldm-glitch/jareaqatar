@@ -113,16 +113,43 @@ export async function sendPushNotification(eventType: NotificationEvent, extraDa
   }
 
   try {
-    // ─── جلب الأجهزة الموثوقة ───────────────────────────────────────────
-    const devices = await db
-      .select()
-      .from(trustedDevicesTable)
-      .where(eq(trustedDevicesTable.isActive, true));
+    // ─── جلب جميع الأجهزة مع اشتراك Push ────────────────────────────────
+    // جلب جميع الأجهزة بغض النظر عن حالة isActive
+    // فقط نتحقق من وجود push_subscription
+    console.log("📱 [FCM] Querying all devices from database...");
+    
+    const allDevices = await db.select().from(trustedDevicesTable);
+    
+    console.log(`📱 [FCM] Total devices in DB: ${allDevices.length}`);
+    console.log(`📱 [FCM] Devices with isActive=true: ${allDevices.filter(d => d.isActive).length}`);
+    console.log(`📱 [FCM] Devices with push_subscription: ${allDevices.filter(d => d.pushSubscription).length}`);
+    
+    //_devicesWithPush = allDevices.filter(d => d.pushSubscription);
+    
+    //_devicesWithPush = allDevices
+    //  .filter(d => d.pushSubscription)
+    //  .filter(d => d.isActive !== false); // Include devices where isActive is true or null
+    
+    const devicesWithPush = allDevices.filter(d => {
+      const hasPush = Boolean(d.pushSubscription);
+      // Include if isActive is true OR null (undefined), exclude only if explicitly false
+      const isActive = d.isActive !== false;
+      return hasPush && isActive;
+    });
+    
+    console.log(`📱 [FCM] Devices eligible for push: ${devicesWithPush.length}`);
 
-    const devicesWithPush = devices.filter(d => d.pushSubscription);
+    // Debug: log each device's push subscription status
+    allDevices.forEach((device, idx) => {
+      console.log(`📱 [FCM] Device ${idx + 1}: id=${device.id}, deviceId=${device.deviceId?.substring(0, 20)}..., isActive=${device.isActive}, hasPush=${Boolean(device.pushSubscription)}, pushLen=${device.pushSubscription?.length || 0}`);
+    });
 
     if (devicesWithPush.length === 0) {
-      console.log("📱 [FCM] No trusted devices with push subscriptions");
+      console.log("📱 [FCM] No eligible devices for push notifications");
+      // List all devices for debugging
+      allDevices.forEach(d => {
+        console.log(`📱 [FCM] Debug device: ${d.deviceId}, isActive=${d.isActive}, push=${d.pushSubscription ? 'YES' : 'NO'}`);
+      });
       return { successful: 0, failed: 0 };
     }
 
