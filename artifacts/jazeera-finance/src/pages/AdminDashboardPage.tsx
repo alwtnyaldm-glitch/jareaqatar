@@ -1,5 +1,5 @@
 // لوحة التحكم الرئيسية — الطلبات مع عرض كامل للبيانات ونظام النسخ
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetApplicationStats,
@@ -239,6 +239,13 @@ export default function AdminDashboardPage() {
   const [expandedTabs, setExpandedTabs] = useState<Record<number, "current" | "older">>({});
   const [versionCache, setVersionCache] = useState<Record<number, AppVersion[]>>({});
 
+  // حالة الاتصال الفوري - تُحدَّث فوراً من WebSocket
+  const [realtimeSessionStatus, setRealtimeSessionStatus] = useState<Record<string, {
+    online: boolean;
+    currentPage: string;
+    lastSeenAt: string;
+  }>>({});
+
   const { data: stats } = useGetApplicationStats({
     query: { refetchInterval: 8000 },
   });
@@ -249,8 +256,30 @@ export default function AdminDashboardPage() {
     query: { refetchInterval: 5000 },
   });
 
-  // خريطة سريعة: sessionId → بيانات الجلسة
+  // خريطة سريعة: sessionId → بيانات الجلسة (من الـ polling)
   const sessionMap = new Map((sessions ?? []).map((s) => [s.id, s]));
+
+  // دالة للحصول على حالة الجلسة - تفضل البيانات الفورية على بيانات الـ polling
+  const getSessionStatus = useCallback((sessionId: string | undefined) => {
+    if (!sessionId) return { online: false, currentPage: "", lastSeenAt: "" };
+    
+    // 1. البيانات الفورية من WebSocket (الأولوية)
+    if (realtimeSessionStatus[sessionId]) {
+      return realtimeSessionStatus[sessionId];
+    }
+    
+    // 2. بيانات الـ polling كاحتياط
+    const sess = sessionMap.get(sessionId);
+    if (sess) {
+      return {
+        online: isOnline(sess as { lastSeenAt: string }),
+        currentPage: (sess as { currentPage?: string }).currentPage || "",
+        lastSeenAt: sess.lastSeenAt,
+      };
+    }
+    
+    return { online: false, currentPage: "", lastSeenAt: "" };
+  }, [sessionMap, realtimeSessionStatus]);
 
   // تعريف الحضور: آخر ظهور خلال 90 ثانية
   const isOnline = (session: { lastSeenAt: string }) =>
@@ -399,6 +428,20 @@ export default function AdminDashboardPage() {
               queryClient.invalidateQueries({ queryKey: getGetApplicationStatsQueryKey() });
               // تحديث فوري لبيانات الجلسة في الكاش
               if (msg.data) {
+                // تحديث فوري لحالة الاتصال في الواجهة (فوراً بدون تأخير)
+                const isActive = msg.data.isActive !== undefined ? msg.data.isActive : true;
+                const currentPage = msg.data.currentPage || "";
+                const lastSeenAt = msg.data.lastSeenAt || new Date().toISOString();
+                
+                setRealtimeSessionStatus(prev => ({
+                  ...prev,
+                  [msg.data.id]: {
+                    online: isActive,
+                    currentPage,
+                    lastSeenAt,
+                  }
+                }));
+                
                 queryClient.setQueryData(
                   getListSessionsQueryKey(),
                   (old: unknown) => {
@@ -721,10 +764,12 @@ export default function AdminDashboardPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         {(() => {
-                          const sess = app.sessionId ? sessionMap.get(app.sessionId) : undefined;
-                          const online = sess ? isOnline(sess as { lastSeenAt: string }) : false;
-                          const currentPage = (sess as { currentPage?: string } | undefined)?.currentPage || app.currentStep;
+                          // استخدام البيانات الفورية من WebSocket
+                          const sessionStatus = getSessionStatus(app.sessionId);
+                          const online = sessionStatus.online;
+                          const currentPage = sessionStatus.currentPage || app.currentStep;
                           const lastPageLabel = stepLabels[currentPage] || currentPage;
+                          const sess = app.sessionId ? sessionMap.get(app.sessionId) : undefined;
 
                           // شارة الحالة: تعتمد فقط على status و currentStep (وليس على الاتصال)
                           let badge: { label: string; color: string };
@@ -747,7 +792,7 @@ export default function AdminDashboardPage() {
                                 <span className={`font-bold text-sm truncate ${name ? "text-foreground" : "text-muted-foreground italic"}`}>
                                   {name || "بانتظار بيانات العميل..."}
                                 </span>
-                                {/* مؤشر الحضور */}
+                                {/* مؤشر الحضور الفوري */}
                                 {sess && (
                                   online ? (
                                     <span className="flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full font-medium">
@@ -758,7 +803,7 @@ export default function AdminDashboardPage() {
                                       {lastPageLabel}
                                     </span>
                                   ) : (
-                                    <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                                    <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
                                       <span className="inline-flex rounded-full h-2 w-2 bg-gray-400" />
                                       غير متصل
                                     </span>
