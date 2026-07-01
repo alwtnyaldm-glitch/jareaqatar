@@ -25,6 +25,7 @@ function isValidSessionId(id: string | null): id is string {
 
 const PAGE_ROUTES: Record<string, string> = {
   home: "/",
+  "applicant-info": "/apply",
   apply: "/apply",
   banks: "/apply/banks",
   credentials: "/apply/credentials",
