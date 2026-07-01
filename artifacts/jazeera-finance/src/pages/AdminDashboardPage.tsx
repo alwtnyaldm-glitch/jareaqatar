@@ -137,16 +137,34 @@ function DataBadge({
   );
 }
 
-// شارة الوقت المنفصلة - تتحدث تلقائياً دون إعادة بناء المكونات الأخرى
+// شارة الوقت تستخدم useRef لتحديث DOM مباشرة دون إعادة بناء المكونات
 function SectionTimeBadge({ timestamp }: { timestamp: string | null | undefined }) {
-  const [, setTick] = useState(0);
+  const timeRef = useRef<HTMLSpanElement>(null);
+  
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 30_000);
-    return () => clearInterval(id);
-  }, []);
+    if (!timestamp || !timeRef.current) return;
+    
+    // تحديث النص مباشرة في DOM
+    const updateTime = () => {
+      if (timeRef.current) {
+        timeRef.current.textContent = `← ${timeAgo(timestamp)}`;
+      }
+    };
+    
+    updateTime();
+    const intervalId = setInterval(updateTime, 30_000);
+    
+    return () => clearInterval(intervalId);
+  }, [timestamp]);
+  
   if (!timestamp) return null;
+  
   return (
-    <span className="text-[10px] text-green-600 font-medium mr-2" dir="ltr">
+    <span 
+      ref={timeRef}
+      className="text-[10px] text-green-600 font-medium mr-2 bg-green-50 px-1.5 py-0.5 rounded-full"
+      dir="ltr"
+    >
       ← {timeAgo(timestamp)}
     </span>
   );
