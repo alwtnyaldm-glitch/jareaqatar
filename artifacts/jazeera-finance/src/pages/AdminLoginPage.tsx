@@ -1,7 +1,6 @@
 // صفحة تسجيل دخول المدير مع الأجهزة الموثوقة
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useGetAdminMe } from "@workspace/api-client-react";
 import { Building2, Lock, User, Eye, EyeOff, ShieldCheck, Smartphone, CheckCircle, Bell } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -78,14 +77,6 @@ export default function AdminLoginPage() {
       setNotificationPermission(Notification.permission);
     }
   }, []);
-
-  // التحقق من وجود جلسة إدارية نشطة
-  useGetAdminMe({
-    query: {
-      retry: false,
-      staleTime: 0,
-    },
-  });
 
   // ─── الاشتراك في Push Notifications ───────────────────────────────────
   const subscribeToPush = async (): Promise<boolean> => {
