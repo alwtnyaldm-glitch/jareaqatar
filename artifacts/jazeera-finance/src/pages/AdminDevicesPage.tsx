@@ -1,9 +1,8 @@
 // صفحة إدارة الأجهزة الموثوقة للمدير
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/AdminLayout";
 import {
-  Smartphone, Trash2, RefreshCw, CheckCircle, XCircle, Bell, BellOff, Clock
+  Smartphone, Trash2, RefreshCw, Bell, BellOff, Clock
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -21,7 +20,6 @@ interface TrustedDevice {
 }
 
 export default function AdminDevicesPage() {
-  const navigate = useNavigate();
   const [devices, setDevices] = useState<TrustedDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<number | null>(null);
