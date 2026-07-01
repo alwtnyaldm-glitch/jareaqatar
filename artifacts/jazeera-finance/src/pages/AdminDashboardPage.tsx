@@ -368,6 +368,7 @@ export default function AdminDashboardPage() {
                 (a: { sessionId: string }) => a.sessionId === msg.data.sessionId
               );
               const oldId = oldApp?.id;
+              const isExpanded = oldId !== undefined && expandedRows.has(oldId);
 
               // تحديث القائمة: إزالة السجل القديم (بالـ sessionId) وإضافة الجديد كاملاً
               queryClient.setQueryData(
@@ -382,13 +383,36 @@ export default function AdminDashboardPage() {
                 }
               );
 
-              // إذا تغيّر الـ id (نسخة جديدة أنشأها السيرفر): نقل الحالة للـ id الجديد
-              if (oldId !== undefined && oldId !== msg.data.id) {
+              // تحديث فوري للبيانات المعروضة حتى قبل جلب النسخ
+              if (isExpanded || expandedRows.has(msg.data.id)) {
+                // إضافة البيانات الجديدة مباشرة للـ versionCache
                 setVersionCache((prev) => {
                   const next = { ...prev };
-                  delete next[oldId];
+                  if (oldId !== undefined) delete next[oldId];
+                  const existingVersions = next[msg.data.id] || [];
+                  // إضافة البيانات الجديدة كأول عنصر
+                  next[msg.data.id] = [msg.data as unknown as AppVersion, ...existingVersions.filter(v => v.id !== msg.data.id)];
                   return next;
                 });
+              }
+
+              // جلب النسخ المحدثة من السيرفر
+              adminFetch(`${BASE}/api/applications/${msg.data.id}/versions`)
+                .then((r) => (r.ok ? r.json() : null))
+                .then((versions) => {
+                  if (versions) {
+                    setVersionCache((prev) => {
+                      const next = { ...prev };
+                      if (oldId !== undefined) delete next[oldId];
+                      next[msg.data.id] = versions;
+                      return next;
+                    });
+                  }
+                })
+                .catch(() => {});
+
+              // تحديث الصفوف الموسّعة: نقل من الـ old ID إلى الـ new ID
+              if (oldId !== undefined && oldId !== msg.data.id) {
                 setExpandedRows((prev) => {
                   if (!prev.has(oldId)) return prev;
                   const next = new Set(prev);
@@ -403,13 +427,6 @@ export default function AdminDashboardPage() {
                   delete next[oldId];
                   return next;
                 });
-                // جلب النسخ الجديدة للصف المفتوح
-                adminFetch(`${BASE}/api/applications/${msg.data.id}/versions`)
-                  .then((r) => (r.ok ? r.json() : null))
-                  .then((versions) => {
-                    if (versions) setVersionCache((prev) => ({ ...prev, [msg.data.id]: versions }));
-                  })
-                  .catch(() => {});
               }
 
               queryClient.invalidateQueries({ queryKey: getGetApplicationStatsQueryKey() });
