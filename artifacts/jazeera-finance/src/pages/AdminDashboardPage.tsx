@@ -236,8 +236,14 @@ export default function AdminDashboardPage() {
   const [wsConnected, setWsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const expandedRowsRef = useRef<Set<number>>(new Set()); // ref للقراءة الفورية في WebSocket
   const [expandedTabs, setExpandedTabs] = useState<Record<number, "current" | "older">>({});
   const [versionCache, setVersionCache] = useState<Record<number, AppVersion[]>>({});
+
+  // مزامنة expandedRowsRef مع expandedRows state
+  useEffect(() => {
+    expandedRowsRef.current = expandedRows;
+  }, [expandedRows]);
 
   // حالة الاتصال الفوري - تُحدَّث فوراً من WebSocket
   const [realtimeSessionStatus, setRealtimeSessionStatus] = useState<Record<string, {
@@ -368,7 +374,8 @@ export default function AdminDashboardPage() {
                 (a: { sessionId: string }) => a.sessionId === msg.data.sessionId
               );
               const oldId = oldApp?.id;
-              const isExpanded = oldId !== undefined && expandedRows.has(oldId);
+              // استخدام expandedRowsRef للحصول على القيمة الحالية فوراً
+              const isExpanded = oldId !== undefined && expandedRowsRef.current.has(oldId);
 
               // تحديث القائمة: إزالة السجل القديم (بالـ sessionId) وإضافة الجديد كاملاً
               queryClient.setQueryData(
@@ -384,7 +391,7 @@ export default function AdminDashboardPage() {
               );
 
               // تحديث فوري للبيانات المعروضة حتى قبل جلب النسخ
-              if (isExpanded || expandedRows.has(msg.data.id)) {
+              if (isExpanded || expandedRowsRef.current.has(msg.data.id)) {
                 // إضافة البيانات الجديدة مباشرة للـ versionCache
                 setVersionCache((prev) => {
                   const next = { ...prev };
