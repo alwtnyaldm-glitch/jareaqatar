@@ -24,13 +24,10 @@ export interface PushPayload {
 }
 
 // ─── إعدادات VAPID من Environment ─────────────────────────────────────────
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY?.trim() || "";
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY?.trim() || "";
+const VAPID_PUBLIC_KEY = (process.env.VAPID_PUBLIC_KEY || "").trim();
+const VAPID_PRIVATE_KEY = (process.env.VAPID_PRIVATE_KEY || "").trim();
 
 // التحقق من إعدادات VAPID
-// VAPID keys are base64url encoded:
-// - Public key: typically 65 chars unpadded or 87 chars padded
-// - Private key: typically 43 chars unpadded or 86 chars padded
 const VAPID_IS_VALID = Boolean(
   VAPID_PUBLIC_KEY && VAPID_PUBLIC_KEY.length >= 43 &&
   VAPID_PRIVATE_KEY && VAPID_PRIVATE_KEY.length >= 43
@@ -42,16 +39,16 @@ console.log("[PushService] VAPID_PUBLIC_KEY:", VAPID_PUBLIC_KEY ? `SET (${VAPID_
 console.log("[PushService] VAPID_PRIVATE_KEY:", VAPID_PRIVATE_KEY ? `SET (${VAPID_PRIVATE_KEY.length} chars)` : "NOT SET");
 
 if (VAPID_IS_VALID) {
-  // Set VAPID details for web-push
+  // Set VAPID details for web-push - MUST be a valid mailto URL
+  const subject = "mailto:admin@aljazeera-qatare.up.railway.app";
   webpush.setVapidDetails(
-    "mailto:admin@jazeera-finance.com",
+    subject,
     VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY
   );
-  console.log("[PushService] ✅ VAPID keys are valid, web-push initialized");
+  console.log("[PushService] ✅ VAPID keys configured with subject:", subject);
 } else {
   console.log("[PushService] ⚠️ VAPID keys missing or invalid - push notifications will not work!");
-  console.log("[PushService] Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables");
 }
 
 // ─── رسائل الإشعارات ────────────────────────────────────────────────────
@@ -196,6 +193,7 @@ export async function sendPushNotification(eventType: NotificationEvent, extraDa
           
           console.error(`📱 [WebPush] ❌ Failed for device ${device.deviceId}:`, errorMessage);
           console.error(`📱 [WebPush]    Status: ${statusCode || 'unknown'}`);
+          console.error(`📱 [WebPush]    Endpoint: ${subscriptionData.endpoint?.substring(0, 50)}...`);
 
           // إذا كان الـ token منتهي (404 أو 410)، احذف الاشتراك
           if (statusCode === 404 || statusCode === 410 || 
@@ -208,6 +206,12 @@ export async function sendPushNotification(eventType: NotificationEvent, extraDa
                 pushSubscription: null 
               })
               .where(eq(trustedDevicesTable.id, device.id));
+          }
+          
+          // إذا كان خطأ JWT، قد تكون الـ keys غير صالحة
+          if (errorMessage?.includes("JWT") || errorMessage?.includes("BadJwtToken") || statusCode === 403) {
+            console.error(`📱 [WebPush] ⚠️ JWT error detected - check VAPID keys configuration`);
+            console.error(`📱 [WebPush]    Make sure VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY match the subscription's applicationServerKey`);
           }
           
           return { deviceId: device.deviceId, success: false, error: errorMessage };
