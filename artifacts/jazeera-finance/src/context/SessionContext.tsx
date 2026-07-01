@@ -82,8 +82,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── إنشاء جلسة جديدة إذا لم تكن موجودة ───────────────────────────────
+  // ─── إنشاء جلسة جديدة إذا لم تكن موجودة (يُتجاهل للمدير) ──────────────
   useEffect(() => {
+    // صفحات الإدارة لا تُسجَّل كزيارات إطلاقاً
+    if (location.startsWith("/admin")) return;
     if (!isValidSessionId(sessionId)) {
       localStorage.removeItem("sessionId");
       fetch(`${BASE}/api/sessions`, {
@@ -101,10 +103,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         })
         .catch(() => {});
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── تحديث الصفحة الحالية في الخادم ─────────────────────────────────────
   useEffect(() => {
+    // لا نُحدِّث الجلسة أثناء تصفح الإدارة
+    if (location.startsWith("/admin")) return;
     const sid = sessionIdRef.current;
     if (!isValidSessionId(sid)) return;
     fetch(`${BASE}/api/sessions/${sid}`, {
@@ -116,6 +120,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   // ─── تتبع حالة النشاط (Page Visibility API + Heartbeat) ─────────────────
   const sendActivity = useCallback((active: boolean) => {
+    // لا نُرسل نبضات قلب من صفحات الإدارة
+    if (locationRef.current.startsWith("/admin")) return;
     const sid = sessionIdRef.current;
     if (!isValidSessionId(sid)) return;
     fetch(`${BASE}/api/sessions/${sid}`, {
