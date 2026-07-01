@@ -128,27 +128,40 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 // ─── حفظ اشتراك Push للجهاز ───────────────────────────────────────────────
-export async function savePushSubscription(subscription: PushSubscription, deviceId: string): Promise<boolean> {
+export async function savePushSubscription(
+  subscription: PushSubscription, 
+  deviceId: string,
+  deviceInfo?: { deviceName: string; browser?: string; os?: string }
+): Promise<boolean> {
   try {
     const subData = subscription.toJSON();
     console.log("[Push] Saving subscription for device:", deviceId);
+    console.log("[Push] Subscription data:", JSON.stringify(subData).substring(0, 200) + "...");
     
     const response = await fetch(`${BASE}/api/auth/devices/${deviceId}/push-subscription`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subscription: subData }),
+      body: JSON.stringify({ 
+        subscription: subData,
+        deviceName: deviceInfo?.deviceName,
+        browser: deviceInfo?.browser,
+        os: deviceInfo?.os,
+      }),
     });
 
+    const result = await response.json();
+    console.log("[Push] Server response:", result);
+
     if (response.ok) {
-      console.log("[Push] Subscription saved successfully");
+      console.log("[Push] ✅ Subscription saved successfully:", result.action);
       return true;
     } else {
-      console.error("[Push] Failed to save subscription:", response.status);
+      console.error("[Push] ❌ Failed to save subscription:", response.status, result);
       return false;
     }
   } catch (err) {
-    console.error("[Push] Error saving subscription:", err);
+    console.error("[Push] ❌ Error saving subscription:", err);
     return false;
   }
 }

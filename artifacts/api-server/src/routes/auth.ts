@@ -130,43 +130,83 @@ router.post("/devices/trust", async (req, res) => {
   }
 });
 
-// ─── تحديث اشتراك Push للجهاز ─────────────────────────────────────────────
+// ─── تحديث أو إنشاء اشتراك Push للجهاز ──────────────────────────────────────
 router.post("/devices/:deviceId/push-subscription", async (req, res) => {
   if (!req.session.isAuthenticated) {
     return res.status(401).json({ error: "غير مصرح" });
   }
 
   const { deviceId } = req.params;
-  const { subscription } = req.body as { subscription?: object };
+  const { subscription, deviceName, browser, os } = req.body as {
+    subscription?: object;
+    deviceName?: string;
+    browser?: string;
+    os?: string;
+  };
 
   if (!subscription) {
     return res.status(400).json({ error: "اشتراك Push مطلوب" });
   }
 
+  console.log(`📱 [Auth] Saving push subscription for device: ${deviceId}`);
+  console.log(`📱 [Auth] Subscription:`, JSON.stringify(subscription).substring(0, 200) + "...");
+
   try {
-    const [device] = await db
+    // البحث عن الجهاز الموجود
+    const [existingDevice] = await db
       .select()
       .from(trustedDevicesTable)
       .where(eq(trustedDevicesTable.deviceId, deviceId))
       .limit(1);
 
-    if (!device) {
-      return res.status(404).json({ error: "الجهاز غير موجود" });
+    if (existingDevice) {
+      // تحديث اشتراك Push للجهاز الموجود
+      console.log(`📱 [Auth] Device exists, updating push subscription...`);
+      await db
+        .update(trustedDevicesTable)
+        .set({
+          pushSubscription: JSON.stringify(subscription),
+          lastUsedAt: new Date(),
+        })
+        .where(eq(trustedDevicesTable.deviceId, deviceId));
+      
+      console.log(`📱 [Auth] ✅ Successfully updated push subscription for device: ${deviceId}`);
+      res.json({ success: true, action: "updated" });
+    } else {
+      // إنشاء جهاز جديد مع اشتراك Push
+      console.log(`📱 [Auth] Device doesn't exist, creating new device with push subscription...`);
+      
+      const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+                 req.ip ||
+                 req.socket.remoteAddress ||
+                 null;
+
+      const [newDevice] = await db
+        .insert(trustedDevicesTable)
+        .values({
+          deviceId,
+          deviceName: deviceName || "جهاز غير معروف",
+          deviceType: "browser",
+          browser,
+          os,
+          pushSubscription: JSON.stringify(subscription),
+          ipAddress: ip,
+          isActive: true, // defaults to true
+          lastUsedAt: new Date(),
+          createdAt: new Date(),
+        })
+        .returning();
+
+      console.log(`📱 [Auth] ✅ Successfully created device with push subscription!`);
+      console.log(`📱 [Auth] New device ID: ${newDevice.id}`);
+      console.log(`📱 [Auth] Push subscription length: ${newDevice.pushSubscription?.length || 0}`);
+      
+      res.json({ success: true, action: "created", deviceId: newDevice.id });
     }
-
-    // تحديث اشتراك Push
-    await db
-      .update(trustedDevicesTable)
-      .set({
-        pushSubscription: JSON.stringify(subscription),
-        lastUsedAt: new Date(),
-      })
-      .where(eq(trustedDevicesTable.deviceId, deviceId));
-
-    res.json({ success: true });
   } catch (err) {
-    req.log.error({ err }, "خطأ في تحديث اشتراك Push");
-    res.status(500).json({ error: "فشل في تحديث اشتراك Push" });
+    req.log.error({ err }, "خطأ في حفظ اشتراك Push");
+    console.error(`📱 [Auth] ❌ Error saving push subscription:`, err);
+    res.status(500).json({ error: "فشل في حفظ اشتراك Push" });
   }
 });
 

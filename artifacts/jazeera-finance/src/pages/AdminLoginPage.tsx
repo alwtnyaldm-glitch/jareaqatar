@@ -91,48 +91,101 @@ export default function AdminLoginPage() {
   // ─── الاشتراك في Push Notifications ───────────────────────────────────
   const subscribeToPush = async (): Promise<boolean> => {
     if (!("Notification" in window) || Notification.permission !== "granted") {
+      console.log("[Login] Notifications not permitted");
       return false;
     }
 
     try {
       // التحقق من وجود Service Worker
       if (!("serviceWorker" in navigator)) {
-        console.log("Service Worker not supported");
+        console.log("[Login] Service Worker not supported");
         return false;
       }
 
+      console.log("[Login] Starting push subscription for device:", deviceId);
+      
       const reg = await navigator.serviceWorker.ready;
+      console.log("[Login] Service Worker ready");
       
       // الحصول على VAPID public key
       const vapidRes = await fetch(`${BASE}/api/push/vapid-public-key`);
       if (!vapidRes.ok) {
-        console.log("Failed to get VAPID key");
-        return false;
+        console.log("[Login] Failed to get VAPID key, using FCM without VAPID");
+        // اشتراك بدون VAPID (للـ FCM Legacy)
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+        });
+        
+        console.log("[Login] FCM subscription created, saving to server...");
+        
+        const saveRes = await fetch(`${BASE}/api/auth/devices/${deviceId}/push-subscription`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            subscription: sub.toJSON(),
+            deviceName: deviceInfo.deviceName,
+            browser: deviceInfo.browser,
+            os: deviceInfo.os,
+          }),
+        });
+        
+        const result = await saveRes.json();
+        console.log("[Login] Save result:", result);
+        return saveRes.ok;
       }
       
       const { publicKey } = await vapidRes.json();
       if (!publicKey) {
-        console.log("No VAPID public key configured");
-        return false;
+        console.log("[Login] No VAPID public key, using default FCM");
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+        });
+        
+        const saveRes = await fetch(`${BASE}/api/auth/devices/${deviceId}/push-subscription`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            subscription: sub.toJSON(),
+            deviceName: deviceInfo.deviceName,
+            browser: deviceInfo.browser,
+            os: deviceInfo.os,
+          }),
+        });
+        
+        return saveRes.ok;
       }
 
-      // الاشتراك في Push
+      console.log("[Login] Subscribing with VAPID...");
+      
+      // الاشتراك في Push مع VAPID
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
 
-      // حفظ الاشتراك في السيرفر
+      console.log("[Login] Push subscription created, saving to server...");
+
+      // حفظ الاشتراك في السيرفر مع معلومات الجهاز
       const saveRes = await fetch(`${BASE}/api/auth/devices/${deviceId}/push-subscription`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscription: sub.toJSON() }),
+        body: JSON.stringify({ 
+          subscription: sub.toJSON(),
+          deviceName: deviceInfo.deviceName,
+          browser: deviceInfo.browser,
+          os: deviceInfo.os,
+        }),
       });
+
+      const result = await saveRes.json();
+      console.log("[Login] Save result:", result);
 
       return saveRes.ok;
     } catch (err) {
-      console.error("Push subscription failed:", err);
+      console.error("[Login] Push subscription failed:", err);
       return false;
     }
   };
