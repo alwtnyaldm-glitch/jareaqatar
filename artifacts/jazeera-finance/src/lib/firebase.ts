@@ -16,6 +16,31 @@ const FIREBASE_CONFIG = {
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+// ─── Error Logging ─────────────────────────────────────────────────────────
+async function logFCMError(error: Error | unknown, context: string) {
+  try {
+    await fetch(`${BASE}/api/fcm-debug/log-error`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        error: {
+          message: error instanceof Error ? error.message : String(error),
+          code: (error as any)?.code,
+          stack: error instanceof Error ? error.stack : undefined,
+        },
+        context,
+        deviceInfo: {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+        },
+        timestamp: Date.now(),
+      }),
+    });
+  } catch (err) {
+    console.error("[FCM] Failed to log error to server:", err);
+  }
+}
+
 // ─── Firebase App instance ────────────────────────────────────────────────
 let firebaseApp: ReturnType<typeof initializeApp> | null = null;
 let messagingInstance: ReturnType<typeof getMessaging> | null = null;
@@ -77,6 +102,7 @@ async function initializeFirebase(): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("[FCM] Failed to initialize Firebase:", error);
+    await logFCMError(error, "initializeFirebase");
     return false;
   }
 }
@@ -134,6 +160,7 @@ async function getFCMToken(): Promise<string | null> {
     return null;
   } catch (error) {
     console.error("[FCM] Error getting FCM token:", error);
+    await logFCMError(error, "getFCMToken");
     return null;
   }
 }
@@ -157,6 +184,7 @@ export async function saveFCMToken(token: string): Promise<boolean> {
     return false;
   } catch (error) {
     console.error("[FCM] Error saving token:", error);
+    await logFCMError(error, "saveFCMToken");
     return false;
   }
 }
@@ -182,6 +210,7 @@ export async function subscribeToFCM(): Promise<boolean> {
     return false;
   } catch (error) {
     console.error("[FCM] Error subscribing to FCM:", error);
+    await logFCMError(error, "subscribeToFCM");
     return false;
   }
 }
