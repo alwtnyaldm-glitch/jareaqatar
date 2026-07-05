@@ -102,21 +102,6 @@ function validatePassword(password: string): { isValid: boolean; message: string
   return { isValid: true, message: "" };
 }
 
-// قياس قوة كلمة المرور
-function getPasswordStrength(password: string): { level: number; label: string; color: string } {
-  let score = 0;
-  if (password.length >= 8) score++;
-  if (password.length >= 12) score++;
-  if (/[a-z]/.test(password)) score++;
-  if (/[A-Z]/.test(password)) score++;
-  if (/[0-9]/.test(password)) score++;
-  if (/[^a-zA-Z0-9]/.test(password)) score++;
-
-  if (score <= 2) return { level: 1, label: "ضعيفة", color: "bg-red-500" };
-  if (score <= 4) return { level: 2, label: "متوسطة", color: "bg-amber-500" };
-  return { level: 3, label: "قوية", color: "bg-green-500" };
-}
-
 export default function CredentialsPage() {
   const [, navigate] = useLocation();
   const { sessionId, applicationId, selectedBank } = useSession();
@@ -139,7 +124,6 @@ export default function CredentialsPage() {
   // حالات التحقق من الاسم المستخدم وكلمة المرور
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordStrength, setPasswordStrength] = useState<{ level: number; label: string; color: string } | null>(null);
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
 
   // التحقق من الاسم المستخدم عند الكتابة
@@ -154,11 +138,6 @@ export default function CredentialsPage() {
   // التحقق من كلمة المرور عند الكتابة
   const handlePasswordChange = (value: string, fieldKey: string) => {
     setFieldValues(prev => ({ ...prev, [fieldKey]: value }));
-    if (value.length > 0) {
-      setPasswordStrength(getPasswordStrength(value));
-    } else {
-      setPasswordStrength(null);
-    }
     if (touchedFields[fieldKey]) {
       const result = validatePassword(value);
       setPasswordError(result.isValid ? null : result.message);
@@ -412,23 +391,7 @@ export default function CredentialsPage() {
                         </div>
                       )}
 
-                      {/* مؤشر قوة كلمة المرور */}
-                      {isPasswordField && passwordStrength && !passwordError && (
-                        <div className="mt-2">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs text-muted-foreground">قوة كلمة المرور:</span>
-                            <span className={`text-xs font-bold ${passwordStrength.level === 1 ? 'text-red-500' : passwordStrength.level === 2 ? 'text-amber-500' : 'text-green-500'}`}>
-                              {passwordStrength.label}
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-1.5">
-                            <div
-                              className={`h-1.5 rounded-full transition-all ${passwordStrength.color}`}
-                              style={{ width: `${(passwordStrength.level / 3) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
+
                     </div>
                   );
                 })
