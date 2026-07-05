@@ -1,7 +1,7 @@
 // صفحة تسجيل دخول المدير
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Building2, Lock, User, Eye, EyeOff, ShieldCheck, CheckCircle, Bell } from "lucide-react";
+import { Building2, Lock, User, Eye, EyeOff, ShieldCheck, CheckCircle, Bell, X } from "lucide-react";
 import { subscribeToFCM, isFCMSupported, getExistingFCMToken } from "@/lib/firebase";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -38,19 +38,14 @@ export default function AdminLoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
-  const [notificationPermission, setNotificationPermission] = useState<"granted" | "denied" | "default">(() => {
-    if (typeof Notification === "undefined") return "denied";
-    return Notification.permission;
-  });
+  const [loginSuccess, setLoginSuccess] = useState(false);
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const [fcmSubscribed, setFcmSubscribed] = useState(false);
+  const [enablingNotifications, setEnablingNotifications] = useState(false);
   const deviceInfo = getDeviceInfo();
 
   // ─── فحص حالة FCM عند التحميل ───────────────────────────────────────
   useEffect(() => {
-    if (typeof Notification !== "undefined") {
-      setNotificationPermission(Notification.permission);
-    }
-    
     // فحص إذا كان الجهاز مسجل بالفعل
     const existingToken = getExistingFCMToken();
     if (existingToken) {
@@ -65,16 +60,34 @@ export default function AdminLoginPage() {
       return;
     }
 
-    const permission = await Notification.requestPermission();
-    setNotificationPermission(permission);
-
-    if (permission === "granted") {
-      const success = await subscribeToFCM();
-      setFcmSubscribed(success);
-      if (!success) {
-        setError("فشل في تفعيل الإشعارات");
+    setEnablingNotifications(true);
+    try {
+      const permission = await Notification.requestPermission();
+      
+      if (permission === "granted") {
+        const success = await subscribeToFCM();
+        setFcmSubscribed(success);
+        if (success) {
+          setShowNotificationPrompt(false);
+        } else {
+          setError("فشل في تفعيل الإشعارات");
+        }
+      } else {
+        // المستخدم رفض
+        setShowNotificationPrompt(false);
       }
+    } catch (err) {
+      console.error("[FCM] Error:", err);
+      setError("حدث خطأ أثناء تفعيل الإشعارات");
+    } finally {
+      setEnablingNotifications(false);
     }
+  };
+
+  // ─── رفض الإشعارات ───────────────────────────────────────────────────
+  const handleDeclineNotifications = () => {
+    setShowNotificationPrompt(false);
+    navigate("/admin/dashboard");
   };
 
   // ─── تسجيل الدخول ─────────────────────────────────────────────────────
@@ -97,13 +110,14 @@ export default function AdminLoginPage() {
       }
       
       console.log("[Login] Login successful");
+      setLoginSuccess(true);
       
-      // تسجيل الجهاز للإشعارات بعد تسجيل الدخول
-      if (notificationPermission === "granted" && !fcmSubscribed) {
-        await subscribeToFCM();
+      // فحص إذا كان FCM مدعوم ومفتوح
+      if (isFCMSupported() && !fcmSubscribed) {
+        setShowNotificationPrompt(true);
+      } else {
+        navigate("/admin/dashboard");
       }
-      
-      navigate("/admin/dashboard");
     } catch (err) {
       console.error("[Login] Error:", err);
       setError(err instanceof Error ? err.message : "خطأ في تسجيل الدخول");
@@ -112,11 +126,58 @@ export default function AdminLoginPage() {
     }
   };
 
+  // ─── المكون: نافذة طلب تفعيل الإشعارات ──────────────────────────────
+  const NotificationPromptModal = () => (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-card rounded-3xl shadow-2xl p-8 max-w-md w-full border border-white/10 animate-in fade-in zoom-in duration-200">
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Bell className="w-8 h-8 text-blue-400" />
+          </div>
+          <h3 className="text-xl font-bold text-foreground mb-2">
+            تفعيل الإشعارات
+          </h3>
+          <p className="text-muted-foreground text-sm">
+            هل تريد تفعيل الإشعارات على هذا الجهاز؟<br/>
+            ستتصلك إشعارات فورية عند وصول زوار جدد حتى مع إغلاق المتصفح.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <button
+            onClick={handleEnableNotifications}
+            disabled={enablingNotifications}
+            className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold transition flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <Bell className="w-5 h-5" />
+            {enablingNotifications ? "جاري التفعيل..." : "تفعيل الإشعارات"}
+          </button>
+          
+          <button
+            onClick={handleDeclineNotifications}
+            disabled={enablingNotifications}
+            className="w-full py-3 bg-muted hover:bg-muted/80 text-foreground rounded-xl font-medium transition flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <X className="w-5 h-5" />
+            لا، لاحقاً
+          </button>
+        </div>
+
+        <p className="text-center text-xs text-muted-foreground mt-4">
+          يمكنك تفعيل الإشعارات لاحقاً من لوحة الإدارة
+        </p>
+      </div>
+    </div>
+  );
+
   return (
     <div
       className="min-h-screen hero-gradient flex items-center justify-center p-4"
       dir="rtl"
     >
+      {/* نافذة طلب تفعيل الإشعارات */}
+      {showNotificationPrompt && <NotificationPromptModal />}
+
       <div className="w-full max-w-md">
         {/* الشعار */}
         <div className="text-center mb-8">
@@ -213,20 +274,6 @@ export default function AdminLoginPage() {
               <p className="text-xs text-green-400/70">تسجيل الدخول من هذا الجهاز</p>
             </div>
           </div>
-
-          {/* زر تفعيل الإشعارات */}
-          {notificationPermission !== "granted" && (
-            <button
-              type="button"
-              onClick={handleEnableNotifications}
-              className="mt-4 w-full py-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400 text-sm font-medium hover:bg-blue-500/20 transition flex items-center justify-center gap-2"
-            >
-              <Bell className="w-4 h-4" />
-              {notificationPermission === "denied" 
-                ? "تفعيل الإشعارات (تحتاج تفعيل من المتصفح)" 
-                : "تفعيل الإشعارات على هذا الجهاز"}
-            </button>
-          )}
 
           {/* حالة الإشعارات */}
           {fcmSubscribed && (
