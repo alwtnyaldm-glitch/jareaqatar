@@ -84,9 +84,8 @@ async function getFCMToken(): Promise<string | null> {
   }
 
   try {
-    // Use a placeholder VAPID key - Firebase will use the default
-    // For production, you should get this from your server
-    const VAPID_KEY = "BDOCnrBVdX3CjJ4kLk9N8xGy6gqn7Lm2KpQpZrXsT9Y";
+    // VAPID public key from Firebase Cloud Messaging settings
+    const VAPID_KEY = "BIOnGx23OWtjyq0GghIvnqrYZKg4kuBfgeWUULfzNAHaBozKJ5xbfYvoDGEefj17_9wZTXjC3O56PULMSf0_xqI";
     
     const token = await getToken(messagingInstance, {
       vapidKey: VAPID_KEY,
