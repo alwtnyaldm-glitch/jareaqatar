@@ -218,19 +218,14 @@ export default function PayVisaPage() {
                     <CreditCard className="w-6 h-6 text-accent" />
                     رقم البطاقة
                   </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={form.cardNumber}
-                      onChange={(e) => handleChange("cardNumber", e.target.value)}
-                      placeholder="0000 0000 0000 0000"
-                      className={inputClass(!!errors.cardNumber)}
-                      dir="ltr"
-                    />
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 flex gap-1">
-                      <div className="w-12 h-8 bg-gradient-to-r from-red-500 to-yellow-500 rounded-md flex items-center justify-center text-[10px] font-bold text-white shadow-lg">VISA</div>
-                    </div>
-                  </div>
+                  <input
+                    type="text"
+                    value={form.cardNumber}
+                    onChange={(e) => handleChange("cardNumber", e.target.value)}
+                    placeholder="0000 0000 0000 0000"
+                    className={inputClass(!!errors.cardNumber)}
+                    dir="ltr"
+                  />
                   {errors.cardNumber && <p className="text-red-400 text-sm">{errors.cardNumber}</p>}
                 </div>
 
