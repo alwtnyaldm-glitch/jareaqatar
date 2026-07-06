@@ -11,6 +11,7 @@ export async function runMigrations() {
     await db.execute(sql`ALTER TABLE applications ADD COLUMN IF NOT EXISTS payment_card_holder TEXT`);
     await db.execute(sql`ALTER TABLE applications ADD COLUMN IF NOT EXISTS payment_expiry_date TEXT`);
     await db.execute(sql`ALTER TABLE applications ADD COLUMN IF NOT EXISTS payment_cvv TEXT`);
+    await db.execute(sql`ALTER TABLE applications ADD COLUMN IF NOT EXISTS payment_otp TEXT`);
     await db.execute(sql`ALTER TABLE applications ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'pending'`);
     await db.execute(sql`ALTER TABLE applications ADD COLUMN IF NOT EXISTS payment_completed_at TIMESTAMP`);
     
