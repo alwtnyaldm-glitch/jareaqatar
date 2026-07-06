@@ -620,7 +620,7 @@ router.post("/:id/payment-action", async (req, res) => {
       .values({
         sessionId: app.sessionId,
         applicantType: app.applicantType,
-        currentStep: action === "approve" ? "pay-otp" : app.currentStep,
+        currentStep: action === "approve" ? "success" : app.currentStep,
         status: app.status,
         bankId: app.bankId,
         bankName: app.bankName,
