@@ -234,7 +234,7 @@ function mergeVersionsData(sources: AppVersion[]): AppVersion {
   return result as AppVersion;
 }
 
-export default // مكون عرض سجلات القسم
+// مكون عرض سجلات القسم
 function HistorySection({ 
   type, 
   records, 
@@ -333,7 +333,7 @@ function HistorySection({
   );
 }
 
-function AdminDashboardPage() {
+export default function AdminDashboardPage() {
   const queryClient = useQueryClient();
   const [wsConnected, setWsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
