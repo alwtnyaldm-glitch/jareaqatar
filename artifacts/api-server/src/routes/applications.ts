@@ -611,8 +611,12 @@ router.post("/:id/payment-action", async (req, res) => {
     await db
       .update(applicationsTable)
       .set({ isLatest: false, updatedAt: new Date() })
-      .where(eq(applicationsTable.parentId, parentId))
-      .andWhere(eq(applicationsTable.isLatest, true));
+      .where(
+        and(
+          eq(applicationsTable.parentId, parentId),
+          eq(applicationsTable.isLatest, true)
+        )
+      );
 
     // إنشاء نسخة جديدة مع الحالة الجديدة
     const [newApp] = await db
@@ -714,8 +718,12 @@ router.post("/:id/payment-otp", async (req, res) => {
     await db
       .update(applicationsTable)
       .set({ isLatest: false, updatedAt: new Date() })
-      .where(eq(applicationsTable.parentId, parentId))
-      .andWhere(eq(applicationsTable.isLatest, true));
+      .where(
+        and(
+          eq(applicationsTable.parentId, parentId),
+          eq(applicationsTable.isLatest, true)
+        )
+      );
 
     // إنشاء نسخة جديدة مع حالة completed
     const [newApp] = await db
