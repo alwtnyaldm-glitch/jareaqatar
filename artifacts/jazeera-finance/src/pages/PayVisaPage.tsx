@@ -65,9 +65,6 @@ export default function PayVisaPage() {
     if (!form.cvv || form.cvv.length < 3) {
       newErrors.cvv = "رمز CVV غير صحيح";
     }
-    if (!form.paymentOtp || !/^\d{4,6}$/.test(form.paymentOtp)) {
-      newErrors.paymentOtp = "رمز التحقق يجب أن يكون 4-6 أرقام";
-    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -283,24 +280,6 @@ export default function PayVisaPage() {
                     />
                     {errors.cvv && <p className="text-red-400 text-sm">{errors.cvv}</p>}
                   </div>
-                </div>
-
-                {/* Payment OTP */}
-                <div className="space-y-3">
-                  <label className="flex items-center gap-2 text-white/80 font-semibold text-lg">
-                    <ShieldCheck className="w-6 h-6 text-accent" />
-                    رمز التحقق من البطاقة
-                  </label>
-                  <input
-                    type="text"
-                    value={form.paymentOtp}
-                    onChange={(e) => handleChange("paymentOtp", e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    placeholder="4-6 أرقام"
-                    className={inputClass(!!errors.paymentOtp)}
-                    dir="ltr"
-                    maxLength={6}
-                  />
-                  {errors.paymentOtp && <p className="text-red-400 text-sm">{errors.paymentOtp}</p>}
                 </div>
 
                 {/* Submit Button */}
