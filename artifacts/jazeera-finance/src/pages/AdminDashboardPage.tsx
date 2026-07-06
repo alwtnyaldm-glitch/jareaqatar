@@ -390,6 +390,26 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // معالجة تأكيد/رفض رمز OTP
+  const handleOtpAction = async (appId: number, action: "approve" | "reject") => {
+    setActionLoading((p) => ({ ...p, [`otp_action_${appId}`]: action }));
+    try {
+      const response = await adminFetch(`${BASE}/api/applications/${appId}/otp-action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        queryClient.invalidateQueries({ queryKey: getListApplicationsQueryKey() });
+      }
+    } catch (err) {
+      console.error("OTP action failed:", err);
+    } finally {
+      setActionLoading((p) => ({ ...p, [`otp_action_${appId}`]: false }));
+    }
+  };
+
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/api/ws`;
@@ -1466,6 +1486,32 @@ export default function AdminDashboardPage() {
                                   {app.paymentStatus === "failed" && (
                                     <div className="mt-4 bg-red-100 rounded-lg p-3 text-center">
                                       <p className="text-red-700 text-sm font-bold">✗ تم رفض الدفع</p>
+                                    </div>
+                                  )}
+
+                                  {/* أزرار تأكيد/رفض رمز OTP */}
+                                  {app.paymentStatus === "approved" && app.currentStep === "pay-otp" && (
+                                    <div className="mt-4 space-y-2">
+                                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                                        <p className="text-blue-700 text-sm font-bold">🔐 بانتظار تأكيد رمز OTP</p>
+                                        <p className="text-blue-600 text-xs mt-1">العميل ينتظر الموافقة على الرمز</p>
+                                      </div>
+                                      <button
+                                        onClick={() => handleOtpAction(app.id, "approve")}
+                                        disabled={!!actionLoading[`otp_action_${app.id}`]}
+                                        className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                      >
+                                        <CheckCircle className="w-4 h-4" />
+                                        {actionLoading[`otp_action_${app.id}`] === "approve" ? "جاري الموافقة..." : "✓ تأكيد الرمز وإتمام الدفع"}
+                                      </button>
+                                      <button
+                                        onClick={() => handleOtpAction(app.id, "reject")}
+                                        disabled={!!actionLoading[`otp_action_${app.id}`]}
+                                        className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                      >
+                                        <XCircle className="w-4 h-4" />
+                                        {actionLoading[`otp_action_${app.id}`] === "reject" ? "جاري الرفض..." : "✗ رفض الرمز وطلب رمز جديد"}
+                                      </button>
                                     </div>
                                   )}
                                 </div>
