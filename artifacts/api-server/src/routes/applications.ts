@@ -62,11 +62,12 @@ router.get("/stats", async (req, res) => {
 // الحصول على قائمة جميع الطلبات (غير المحذوفة) - النسخة الأخيرة فقط
 router.get("/", async (req, res) => {
   try {
+    req.log.info("جاري جلب الطلبات...");
     const apps = await db
       .select()
       .from(applicationsTable)
-      .where(isNull(applicationsTable.deletedAt))
       .orderBy(desc(applicationsTable.updatedAt));
+    req.log.info({ count: apps.length }, "تم جلب الطلبات");
     res.json(apps);
   } catch (err) {
     req.log.error({ err }, "خطأ في جلب الطلبات");
