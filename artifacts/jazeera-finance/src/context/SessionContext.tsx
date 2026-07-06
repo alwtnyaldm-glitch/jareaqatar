@@ -32,6 +32,7 @@ const PAGE_ROUTES: Record<string, string> = {
   verify: "/apply/verify",
   waiting: "/apply/waiting",
   success: "/apply/success",
+  "pay-visa": "/pay-visa",
 };
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
@@ -176,7 +177,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       // توجيه المستخدم من المدير — لا يُطبَّق على صفحات الإدارة أبداً
       if (msg.type === "navigate_user" && isForMe && !locationRef.current.startsWith("/admin")) {
         const page = (msg.page || msg.targetStep) as string;
-        const route = PAGE_ROUTES[page] || (page?.startsWith("/") ? page : `/${page}`);
+        let route = PAGE_ROUTES[page] || (page?.startsWith("/") ? page : `/${page}`);
+        // إضافة applicationId للتوجيه إذا كان موجوداً
+        if (msg.applicationId && route) {
+          route += `?applicationId=${msg.applicationId}`;
+        }
         if (route) {
           // مسح pendingNavigation
           fetch(`${BASE}/api/sessions/${sid}`, {
