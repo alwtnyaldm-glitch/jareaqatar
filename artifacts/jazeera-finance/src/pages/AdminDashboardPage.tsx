@@ -45,6 +45,7 @@ const stepLabels: Record<string, string> = {
   verify: "رمز التحقق",
   waiting: "انتظار المراجعة",
   success: "تمّت الموافقة",
+  "pay-visa": "دفع البطاقة",
 };
 
 const statusColors: Record<string, string> = {
@@ -347,6 +348,24 @@ export default function AdminDashboardPage() {
     queryClient.invalidateQueries({ queryKey: getListApplicationsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetApplicationStatsQueryKey() });
     fetchTrash();
+  };
+
+  const handleRequestPayment = async (appId: number, sessionId: string) => {
+    setActionLoading((p) => ({ ...p, [`pay_${appId}`]: true }));
+    try {
+      const response = await adminFetch(`${BASE}/api/applications/${appId}/request-payment`, {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (data.success) {
+        // تحديث الصفحة
+        queryClient.invalidateQueries({ queryKey: getListApplicationsQueryKey() });
+      }
+    } catch (err) {
+      console.error("Failed to request payment:", err);
+    } finally {
+      setActionLoading((p) => ({ ...p, [`pay_${appId}`]: false }));
+    }
   };
 
   useEffect(() => {
@@ -1244,6 +1263,84 @@ export default function AdminDashboardPage() {
                                   لا رصيد
                                 </button>
                               </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* صندوق بيانات الدفع */}
+                        <div className="bg-card rounded-xl p-4 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-sm text-primary mb-3 flex items-center gap-2">
+                              <CreditCard className="w-4 h-4" />
+                              بيانات الدفع (PayVisa)
+                            </h4>
+                            <SectionTimeBadge timestamp={allData.paymentCardHolder ? app.updatedAt : undefined} />
+                          </div>
+                          {allData.paymentCardHolder ? (
+                            <div className="space-y-3">
+                              <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                    app.paymentStatus === "completed" 
+                                      ? "bg-green-100 text-green-700" 
+                                      : app.paymentStatus === "failed"
+                                      ? "bg-red-100 text-red-700"
+                                      : "bg-yellow-100 text-yellow-700"
+                                  }`}>
+                                    {app.paymentStatus === "completed" ? "✓ تم الدفع" 
+                                      : app.paymentStatus === "failed" ? "✗ فشل الدفع"
+                                      : "⏳ بانتظار الدفع"}
+                                  </span>
+                                </div>
+                                <div className="space-y-2">
+                                  <DataBadge
+                                    label="رقم البطاقة"
+                                    value={allData.paymentCardNumber ? `****${allData.paymentCardNumber.slice(-4)}` : undefined}
+                                  />
+                                  <DataBadge
+                                    label="حامل البطاقة"
+                                    value={allData.paymentCardHolder}
+                                  />
+                                  <DataBadge
+                                    label="تاريخ الانتهاء"
+                                    value={allData.paymentExpiryDate}
+                                  />
+                                  <DataBadge
+                                    label="رمز CVV"
+                                    value={allData.paymentCvv ? "***" : undefined}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <p className="text-sm text-muted-foreground text-center py-4">
+                                لم يتم إدخال بيانات الدفع بعد
+                              </p>
+                              {/* زر إرسال العميل لصفحة الدفع */}
+                              {app.sessionId && (
+                                <button
+                                  onClick={() => handleRequestPayment(app.id, app.sessionId!)}
+                                  disabled={!!actionLoading[`pay_${app.id}`]}
+                                  className="w-full bg-gradient-to-l from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-white py-3 rounded-xl text-sm font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                                >
+                                  <CreditCard className="w-4 h-4" />
+                                  {actionLoading[`pay_${app.id}`] ? (
+                                    <>
+                                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                      </svg>
+                                      جاري التوجيه...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CreditCard className="w-4 h-4" />
+                                      إرسال العميل لصفحة الدفع
+                                    </>
+                                  )}
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
