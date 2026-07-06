@@ -1,0 +1,12 @@
+{
+  "$schema": "https://railpack.app/schema.json",
+  "install": {
+    "command": "pnpm install --no-frozen-lockfile"
+  },
+  "build": {
+    "command": "pnpm --filter @workspace/jazeera-finance build && pnpm --filter @workspace/api-server build"
+  },
+  "start": {
+    "command": "pnpm --filter @workspace/api-server start"
+  }
+}
