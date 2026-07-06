@@ -1490,7 +1490,7 @@ export default function AdminDashboardPage() {
                                   )}
 
                                   {/* أزرار تأكيد/رفض رمز OTP */}
-                                  {app.paymentStatus === "approved" && app.currentStep === "pay-otp" && (
+                                  {app.paymentStatus === "otp_submitted" && app.currentStep === "pay-otp" && (
                                     <div className="mt-4 space-y-2">
                                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
                                         <p className="text-blue-700 text-sm font-bold">🔐 بانتظار تأكيد رمز OTP</p>
