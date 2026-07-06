@@ -6,13 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ApplicationStatus = typeof ApplicationStatus[keyof typeof ApplicationStatus];
+export type ApplicationUpdatePaymentStatus = typeof ApplicationUpdatePaymentStatus[keyof typeof ApplicationUpdatePaymentStatus];
 
 
-export const ApplicationStatus = {
+export const ApplicationUpdatePaymentStatus = {
   pending: 'pending',
-  reviewing: 'reviewing',
-  approved: 'approved',
-  rejected: 'rejected',
-  waiting: 'waiting',
+  completed: 'completed',
+  failed: 'failed',
 } as const;
