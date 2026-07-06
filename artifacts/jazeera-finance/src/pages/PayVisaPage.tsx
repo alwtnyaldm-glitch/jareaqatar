@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
 import { CreditCard, Lock, Calendar, User, ShieldCheck, ArrowRight, CheckCircle, AlertCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -11,12 +10,14 @@ interface PaymentForm {
   cvv: string;
 }
 
+function getQueryParam(key: string): string | null {
+  const params = new URLSearchParams(window.location.search);
+  return params.get(key);
+}
+
 export default function PayVisaPage() {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  
-  const applicationId = searchParams.get("applicationId");
-  const sessionId = searchParams.get("session");
+  const applicationId = getQueryParam("applicationId");
+  const sessionId = getQueryParam("session");
   
   const [form, setForm] = useState<PaymentForm>({
     cardNumber: "",
