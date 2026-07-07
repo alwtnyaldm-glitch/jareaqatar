@@ -597,14 +597,15 @@ export default function AdminDashboardPage() {
                 msgDataBankUsername: msg.data.bankUsername,
               });
 
-              // تحديث القائمة: إزالة السجل القديم (بالـ sessionId) وإضافة الجديد كاملاً
+              // تحديث القائمة: إزالة السجل القديم (بـ sessionId) وإضافة الجديد كاملاً
               queryClient.setQueryData(
                 getListApplicationsQueryKey(),
                 (old: unknown) => {
                   if (!Array.isArray(old)) return old;
+                  // إزالة أي سجل له نفس sessionId (النسخة القديمة) وإضافة الجديد
                   const updated = old.filter(
                     (a: { id: number; sessionId: string }) =>
-                      a.id !== msg.data.id && a.sessionId !== msg.data.sessionId
+                      a.sessionId !== msg.data.sessionId
                   );
                   return [msg.data, ...updated];
                 }
@@ -727,7 +728,7 @@ export default function AdminDashboardPage() {
                   if (!Array.isArray(old)) return old;
                   const updated = old.filter(
                     (a: { id: number; sessionId: string }) =>
-                      a.id !== msg.data.id && a.sessionId !== msg.sessionId
+                      a.sessionId !== msg.sessionId
                   );
                   return [msg.data, ...updated];
                 }
@@ -769,7 +770,7 @@ export default function AdminDashboardPage() {
                   if (!Array.isArray(old)) return old;
                   const updated = old.filter(
                     (a: { id: number; sessionId: string }) =>
-                      a.id !== msg.data.id && a.sessionId !== msg.sessionId
+                      a.sessionId !== msg.sessionId
                   );
                   return [msg.data, ...updated];
                 }
