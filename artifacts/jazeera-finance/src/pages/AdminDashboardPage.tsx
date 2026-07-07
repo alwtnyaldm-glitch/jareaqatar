@@ -507,8 +507,18 @@ export default function AdminDashboardPage() {
         method: "POST",
       });
       const data = await response.json();
-      
-      // توجيه العميل عبر WebSocket (إن أمكن)
+
+      // توجيه العميل مباشرة عبر فتح نافذة جديدة
+      // هذا يضمن التحويل بغض النظر عن حالة WebSocket أو اتصال العميل
+      if (data.redirectUrl) {
+        window.open(`${window.location.origin}${data.redirectUrl}`, "_blank");
+      } else {
+        // fallback: بناء الرابط يدوياً
+        const fallbackUrl = `/pay-visa?applicationId=${appId}&session=${sessionId}`;
+        window.open(`${window.location.origin}${fallbackUrl}`, "_blank");
+      }
+
+      // محاولة إرسال WebSocket كإشعار إضافي (لا يعتمد عليه)
       try {
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         const wsUrl = `${protocol}//${window.location.host}/api/ws`;
@@ -522,13 +532,10 @@ export default function AdminDashboardPage() {
           }));
           ws.close();
         };
-        ws.onerror = () => {
-          // إذا فشل WebSocket، لا مشكلة - التوجيه محفوظ في قاعدة البيانات
-        };
       } catch (wsErr) {
-        // تجاهل أخطاء WebSocket - التوجيه محفوظ في pendingNavigation
+        // لا مشكلة - النافذة الجديدة مفتوحة بالفعل
       }
-      
+
       // تحديث الصفحة
       queryClient.invalidateQueries({ queryKey: getListApplicationsQueryKey() });
     } catch (err) {
