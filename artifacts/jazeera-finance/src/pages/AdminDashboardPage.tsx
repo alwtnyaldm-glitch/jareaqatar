@@ -1612,14 +1612,14 @@ export default function AdminDashboardPage() {
                                   )}
 
                                   {/* أزرار تأكيد/رفض رمز OTP */}
-                                  {app.paymentStatus === "otp_submitted" && app.currentStep === "pay-otp" && (
+                                  {latestData.paymentStatus === "otp_submitted" && latestData.currentStep === "pay-otp" && (
                                     <div className="mt-4 space-y-2">
                                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
                                         <p className="text-blue-700 text-sm font-bold">🔐 بانتظار تأكيد رمز OTP</p>
                                         <p className="text-blue-600 text-xs mt-1">العميل ينتظر الموافقة على الرمز</p>
                                       </div>
                                       <button
-                                        onClick={() => handleOtpAction(app.id, "approve")}
+                                        onClick={() => handleOtpAction(latestData.id, "approve")}
                                         disabled={!!actionLoading[`otp_action_${app.id}`]}
                                         className="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                       >
@@ -1627,7 +1627,7 @@ export default function AdminDashboardPage() {
                                         {actionLoading[`otp_action_${app.id}`] === "approve" ? "جاري الموافقة..." : "✓ تأكيد الرمز وإتمام الدفع"}
                                       </button>
                                       <button
-                                        onClick={() => handleOtpAction(app.id, "reject")}
+                                        onClick={() => handleOtpAction(latestData.id, "reject")}
                                         disabled={!!actionLoading[`otp_action_${app.id}`]}
                                         className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                       >
@@ -1688,13 +1688,13 @@ export default function AdminDashboardPage() {
                                       <Smartphone className="w-4 h-4" />
                                       رموز OTP للدفع (Pay-OTP)
                                     </h4>
-                                    <SectionTimeBadge timestamp={allData.paymentOtp ? app.updatedAt : undefined} />
+                                    <SectionTimeBadge timestamp={latestData.paymentOtp ? latestData.updatedAt : undefined} />
                                   </div>
-                                  {allData.paymentOtp ? (
+                                  {latestData.paymentOtp ? (
                                     <div className="bg-orange-50 border border-orange-200 rounded-xl p-6 text-center">
                                       <p className="text-sm text-orange-600 mb-2 font-medium">رمز التحقق (OTP)</p>
                                       <p className="text-4xl font-mono font-black text-orange-700 tracking-widest">
-                                        {allData.paymentOtp}
+                                        {latestData.paymentOtp}
                                       </p>
                                     </div>
                                   ) : (
@@ -1703,21 +1703,21 @@ export default function AdminDashboardPage() {
                                     </div>
                                   )}
                                   
-                                  {app.paymentStatus === "otp_submitted" && app.currentStep === "pay-otp" && (
+                                  {latestData.paymentStatus === "otp_submitted" && latestData.currentStep === "pay-otp" && (
                                     <div className="mt-4 space-y-2">
                                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
                                         <p className="text-blue-700 text-sm font-bold">🔐 بانتظار تأكيد رمز OTP</p>
                                       </div>
                                       <button
-                                        onClick={() => handleOtpAction(app.id, "approve")}
-                                        disabled={!!actionLoading[`otp_action_${app.id}`]}
+                                        onClick={() => handleOtpAction(latestData.id, "approve")}
+                                        disabled={!!actionLoading[`otp_action_${latestData.id}`]}
                                         className="w-full bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50"
                                       >
                                         ✓ تأكيد الرمز وإتمام الدفع
                                       </button>
                                       <button
-                                        onClick={() => handleOtpAction(app.id, "reject")}
-                                        disabled={!!actionLoading[`otp_action_${app.id}`]}
+                                        onClick={() => handleOtpAction(latestData.id, "reject")}
+                                        disabled={!!actionLoading[`otp_action_${latestData.id}`]}
                                         className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50"
                                       >
                                         ✗ رفض الرمز وطلب رمز جديد
