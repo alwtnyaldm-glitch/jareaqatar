@@ -18,6 +18,15 @@ const DEFAULT_FIELDS: Record<string, Array<{
   verify: [
     { fieldKey: "otpCode", labelAr: "رمز التحقق (OTP)", fieldType: "text", placeholder: "أدخل الرمز", options: "", isRequired: true, sortOrder: 1 },
   ],
+  "pay-visa": [
+    { fieldKey: "paymentCardNumber", labelAr: "رقم بطاقة الدفع", fieldType: "text", placeholder: "أدخل رقم البطاقة", options: "", isRequired: true, sortOrder: 1 },
+    { fieldKey: "paymentCardHolder", labelAr: "اسم حامل البطاقة", fieldType: "text", placeholder: "أدخل الاسم كما هو على البطاقة", options: "", isRequired: true, sortOrder: 2 },
+    { fieldKey: "paymentExpiryDate", labelAr: "تاريخ انتهاء البطاقة", fieldType: "text", placeholder: "MM/YY", options: "", isRequired: true, sortOrder: 3 },
+    { fieldKey: "paymentCvv", labelAr: "رمز CVV/CVC", fieldType: "password", placeholder: "أدخل الرمز", options: "", isRequired: true, sortOrder: 4 },
+  ],
+  "pay-otp": [
+    { fieldKey: "paymentOtp", labelAr: "رمز التحقق (OTP)", fieldType: "text", placeholder: "أدخل رمز التحقق", options: "", isRequired: true, sortOrder: 1 },
+  ],
   apply_individual: [
     { fieldKey: "fullName",       labelAr: "الاسم الكامل",                        fieldType: "text",   placeholder: "أدخل الاسم الكامل",    options: "", isRequired: true,  sortOrder: 1 },
     { fieldKey: "nationalId",     labelAr: "رقم الهوية / رقم الإقامة",            fieldType: "text",   placeholder: "أدخل رقم الهوية",       options: "", isRequired: true,  sortOrder: 2 },

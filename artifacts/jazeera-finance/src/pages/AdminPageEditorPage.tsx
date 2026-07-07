@@ -22,6 +22,8 @@ const PAGE_KEYS = [
   { key: "banks", label: "اختيار البنك", group: "خطوات الطلب" },
   { key: "credentials", label: "بيانات الدخول", group: "خطوات الطلب" },
   { key: "verify", label: "رمز التحقق", group: "خطوات الطلب" },
+  { key: "pay-visa", label: "صفحة الدفع", group: "خطوات الدفع" },
+  { key: "pay-otp", label: "رمز بطاقة الدفع", group: "خطوات الدفع" },
   { key: "waiting", label: "انتظار المراجعة", group: "خطوات الطلب" },
   { key: "success", label: "صفحة النجاح", group: "خطوات الطلب" },
 ];
