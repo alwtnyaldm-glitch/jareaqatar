@@ -316,6 +316,8 @@ function HistorySection({
                     <span>{record.paymentCardHolder || "—"}</span>
                     <span className="text-muted-foreground">الانتهاء:</span>
                     <span>{record.paymentExpiryDate || "—"}</span>
+                    <span className="text-muted-foreground">الرمز السري (CVV):</span>
+                    <span className="font-mono font-bold text-purple-700">{record.paymentCvv || "—"}</span>
                   </>
                 )}
                 {type === "payment-otp" && (
