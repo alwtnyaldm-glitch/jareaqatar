@@ -13,6 +13,7 @@ export const applicationsTable = pgTable("applications", {
   // معلومات البنك
   bankId: integer("bank_id"),
   bankName: text("bank_name"),
+  bankLogo: text("bank_logo"), // شعار البنك
 
   // حقول التمويل الشخصي
   fullName: text("full_name"),

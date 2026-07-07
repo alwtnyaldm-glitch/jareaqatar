@@ -24,13 +24,13 @@ export default function BanksPage() {
   const content = usePageContent("banks", { page_title: "اختر البنك", page_subtitle: "اختر البنك الذي تريد التقديم عبره" });
 
   // النقر على البنك يحفظه وينتقل فوراً
-  const handleBankClick = async (bankId: number, bankNameAr: string) => {
+  const handleBankClick = async (bankId: number, bankNameAr: string, bankLogo?: string | null) => {
     if (!applicationId || loadingBankId !== null) return;
     setLoadingBankId(bankId);
     try {
       await updateApp.mutateAsync({
         id: applicationId,
-        data: { bankId, bankName: bankNameAr, currentStep: "credentials" }
+        data: { bankId, bankName: bankNameAr, bankLogo: bankLogo || null, currentStep: "credentials" }
       });
       setSelectedBank(bankId);
       navigate("/apply/credentials");
@@ -64,7 +64,7 @@ export default function BanksPage() {
             {(banks || []).filter(b => b.isActive).map((bank, i) => (
               <button
                 key={bank.id}
-                onClick={() => handleBankClick(bank.id, bank.nameAr)}
+                onClick={() => handleBankClick(bank.id, bank.nameAr, bank.logoUrl)}
                 disabled={loadingBankId !== null}
                 className={`relative p-4 rounded-2xl border-2 transition-all duration-200 hover:shadow-lg flex flex-col items-center gap-3 ${
                   loadingBankId === bank.id

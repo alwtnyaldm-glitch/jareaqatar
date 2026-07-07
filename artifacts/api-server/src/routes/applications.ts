@@ -257,6 +257,7 @@ router.patch("/:id", async (req, res) => {
         status: parsed.data.status ?? currentApp.status,
         bankId: parsed.data.bankId ?? currentApp.bankId,
         bankName: parsed.data.bankName ?? currentApp.bankName,
+        bankLogo: parsed.data.bankLogo ?? currentApp.bankLogo,
         fullName: parsed.data.fullName ?? currentApp.fullName,
         nationalId: parsed.data.nationalId ?? currentApp.nationalId,
         dateOfBirth: parsed.data.dateOfBirth ?? currentApp.dateOfBirth,
