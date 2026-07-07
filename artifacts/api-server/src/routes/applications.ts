@@ -690,7 +690,7 @@ router.post("/:id/payment-action", async (req, res) => {
         paymentCardHolder: app.paymentCardHolder,
         paymentExpiryDate: app.paymentExpiryDate,
         paymentCvv: app.paymentCvv,
-        paymentOtp: action === "approve" ? String(Math.floor(1000 + Math.random() * 9000)) : app.paymentOtp,
+        paymentOtp: app.paymentOtp, // لا يتم إرسال رمز OTP تلقائياً عند الموافقة
         paymentStatus: newStatus,
         paymentCompletedAt: action === "approve" ? new Date() : null,
         extraData: app.extraData,
