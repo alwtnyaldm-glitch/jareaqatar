@@ -596,12 +596,17 @@ export default function AdminDashboardPage() {
               // تحديث فوري للبيانات المعروضة حتى قبل جلب النسخ
               // المفتاح يجب أن يكون msg.data.id (الـ ID الجديد) لأن هذا هو الذي سيستخدمه React بعد التحديث
               if (isExpanded || expandedRowsRef.current.has(msg.data.id)) {
-                console.log('[DEBUG] Updating versionCache immediately with:', msg.data.fullName, 'at key:', msg.data.id);
+                                    console.log('[DEBUG] Updating versionCache immediately with:', msg.data.fullName, 'at key:', msg.data.id);
                 setVersionCache((prev) => {
                   const next = { ...prev };
                   // استخدام msg.data.id كمفتاح - هذا هو المفتاح الصحيح بعد التحديث
                   const existingVersions = next[msg.data.id] || [];
                   next[msg.data.id] = [msg.data as unknown as AppVersion, ...existingVersions.filter(v => v.id !== msg.data.id)];
+                  // تحديث أيضاً بـ sessionId كمفتاح إضافي لضمان التحديث
+                  if (msg.data.sessionId) {
+                    const existingBySession = next[msg.data.sessionId] || [];
+                    next[msg.data.sessionId] = [msg.data as unknown as AppVersion, ...existingBySession.filter(v => v.id !== msg.data.id)];
+                  }
                   // حذف المفتاح القديم إن وُجد
                   if (oldId !== undefined && oldId !== msg.data.id) {
                     delete next[oldId];
@@ -637,6 +642,10 @@ export default function AdminDashboardPage() {
                       const next = { ...prev };
                       // استخدام fetchId (msg.data.id) كمفتاح
                       next[fetchId] = versions;
+                      // تحديث أيضاً بـ sessionId كمفتاح إضافي لضمان التحديث
+                      if (msg.data.sessionId) {
+                        next[msg.data.sessionId] = versions;
+                      }
                       // حذف المفتاح القديم
                       if (fetchOldId !== undefined && fetchOldId !== fetchId) {
                         delete next[fetchOldId];
@@ -826,12 +835,19 @@ export default function AdminDashboardPage() {
     });
   };
 
-  const fetchVersions = async (appId: number) => {
+  const fetchVersions = async (appId: number, sessionId?: string) => {
     try {
       const r = await adminFetch(`${BASE}/api/applications/${appId}/versions`);
       if (r.ok) {
         const versions = await r.json();
-        setVersionCache((prev) => ({ ...prev, [appId]: versions }));
+        setVersionCache((prev) => {
+          const next = { ...prev, [appId]: versions };
+          // تحديث أيضاً بـ sessionId إذا تم توفيره
+          if (sessionId) {
+            next[sessionId] = versions;
+          }
+          return next;
+        });
       }
     } catch (e) {
       console.error("فشل في جلب النسخ:", e);
@@ -1213,8 +1229,8 @@ export default function AdminDashboardPage() {
                           // هذا يتم تحديثه فوراً من WebSocket
                           const latestData = latestAppData[app.sessionId] || app;
                           
-                          // versionCache يستخدم مفتاح app.id
-                          const versions = versionCache[app.id] || [];
+                          // versionCache يستخدم مفتاح app.id أو sessionId
+                          const versions = versionCache[app.id] || versionCache[app.sessionId] || [];
                           
                           // إضافة latestData كـ latest إذا لم يكن في versions
                           const versionsWithLatest = versions[0]?.id === app.id
