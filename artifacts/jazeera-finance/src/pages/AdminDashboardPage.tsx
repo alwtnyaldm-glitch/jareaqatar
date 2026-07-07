@@ -488,6 +488,19 @@ export default function AdminDashboardPage() {
       });
       const data = await response.json();
       if (data.success) {
+        // توجيه العميل مباشرة عبر WebSocket
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${protocol}//${window.location.host}/api/ws`;
+        const ws = new WebSocket(wsUrl);
+        ws.onopen = () => {
+          ws.send(JSON.stringify({
+            type: "navigate_user",
+            sessionId: sessionId,
+            targetStep: "pay-visa",
+            applicationId: appId,
+          }));
+          ws.close();
+        };
         // تحديث الصفحة
         queryClient.invalidateQueries({ queryKey: getListApplicationsQueryKey() });
       }

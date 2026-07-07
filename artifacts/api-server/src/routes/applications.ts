@@ -504,7 +504,11 @@ router.post("/:id/request-payment", async (req, res) => {
     res.json({
       success: true,
       message: "تم توجيه العميل لصفحة الدفع",
-      redirectUrl: `/?session=${app.sessionId}&step=pay-visa&applicationId=${id}`,
+      redirectUrl: `/pay-visa?applicationId=${id}&session=${app.sessionId}`,
+      // إرسال البيانات مباشرة لتوجيه العميل
+      targetStep: "pay-visa",
+      applicationId: id,
+      sessionId: app.sessionId,
     });
   } catch (err) {
     req.log.error({ err }, "خطأ في توجيه العميل لصفحة الدفع");
