@@ -479,18 +479,13 @@ router.post("/:id/request-payment", async (req, res) => {
       })
       .where(eq(applicationsTable.id, id));
 
-    // تحديث صفحة الجلسة
+    // تحديث صفحة الجلسة وحفظ التوجيه في عملية واحدة
     await db
       .update(sessionsTable)
-      .set({ currentPage: "pay-visa", lastSeenAt: new Date() })
-      .where(eq(sessionsTable.id, app.sessionId));
-
-    // حفظ التوجيه في الجلسة لاستخدامه عند إعادة التحميل (مع applicationId)
-    await db
-      .update(sessionsTable)
-      .set({ 
+      .set({
+        currentPage: "pay-visa",
         pendingNavigation: JSON.stringify({ page: "pay-visa", applicationId: id }),
-        lastSeenAt: new Date() 
+        lastSeenAt: new Date()
       })
       .where(eq(sessionsTable.id, app.sessionId));
 

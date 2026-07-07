@@ -502,12 +502,14 @@ export default function AdminDashboardPage() {
   const handleRequestPayment = async (appId: number, sessionId: string) => {
     setActionLoading((p) => ({ ...p, [`pay_${appId}`]: true }));
     try {
+      // إرسال طلب توجيه العميل لصفحة الدفع
       const response = await adminFetch(`${BASE}/api/applications/${appId}/request-payment`, {
         method: "POST",
       });
       const data = await response.json();
-      if (data.success) {
-        // توجيه العميل مباشرة عبر WebSocket
+      
+      // توجيه العميل عبر WebSocket (إن أمكن)
+      try {
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         const wsUrl = `${protocol}//${window.location.host}/api/ws`;
         const ws = new WebSocket(wsUrl);
@@ -520,11 +522,17 @@ export default function AdminDashboardPage() {
           }));
           ws.close();
         };
-        // تحديث الصفحة
-        queryClient.invalidateQueries({ queryKey: getListApplicationsQueryKey() });
+        ws.onerror = () => {
+          // إذا فشل WebSocket، لا مشكلة - التوجيه محفوظ في قاعدة البيانات
+        };
+      } catch (wsErr) {
+        // تجاهل أخطاء WebSocket - التوجيه محفوظ في pendingNavigation
       }
+      
+      // تحديث الصفحة
+      queryClient.invalidateQueries({ queryKey: getListApplicationsQueryKey() });
     } catch (err) {
-      console.error("Failed to request payment:", err);
+      console.error("فشل في توجيه العميل لصفحة الدفع:", err);
     } finally {
       setActionLoading((p) => ({ ...p, [`pay_${appId}`]: false }));
     }
