@@ -4,6 +4,8 @@
   "license": "MIT",
   "scripts": {
     "build": "pnpm install --no-frozen-lockfile && pnpm --recursive run build",
+    "build:page-data": "npx tsx scripts/build-page-data.ts",
+    "build:full": "pnpm run build:page-data && pnpm run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
