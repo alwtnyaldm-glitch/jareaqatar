@@ -204,3 +204,26 @@ router.get("/devices", async (req, res) => {
 });
 
 export default router;
+
+// ─── حذف جهاز موثوق ───────────────────────────────────────────────────
+router.delete("/devices/:deviceId", async (req, res) => {
+  if (!req.session.isAuthenticated) {
+    return res.status(401).json({ error: "غير مصرح" });
+  }
+
+  const { deviceId } = req.params;
+
+  try {
+    // تحديث الجهاز كغير نشط (حذف منطقي)
+    await db
+      .update(trustedDevicesTable)
+      .set({ isActive: false })
+      .where(eq(trustedDevicesTable.deviceId, deviceId));
+
+    console.log(`📱 [FCM] Device removed: ${deviceId}`);
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err }, "خطأ في حذف الجهاز");
+    res.status(500).json({ error: "فشل في حذف الجهاز" });
+  }
+});

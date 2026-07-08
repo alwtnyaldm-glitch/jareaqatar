@@ -1,8 +1,9 @@
 // صفحة إدارة الأجهزة الموثوقة للمدير
 import { useState, useEffect } from "react";
 import AdminLayout from "@/components/AdminLayout";
+import NotificationSetup from "@/components/NotificationSetup";
 import {
-  Smartphone, Trash2, RefreshCw, Bell, BellOff, Clock
+  Smartphone, Trash2, RefreshCw, Bell, BellOff, Clock, AlertCircle
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -44,9 +45,19 @@ export default function AdminDevicesPage() {
     }
   };
 
+  // حالة الإشعارات
+  const [notificationDismissed, setNotificationDismissed] = useState(
+    localStorage.getItem("notification_dismissed") === "true"
+  );
+
   useEffect(() => {
     fetchDevices();
   }, []);
+
+  const handleDismissNotification = () => {
+    setNotificationDismissed(true);
+    localStorage.setItem("notification_dismissed", "true");
+  };
 
   // حذف جهاز
   const handleDelete = async (deviceId: string) => {
@@ -100,15 +111,30 @@ export default function AdminDevicesPage() {
           </button>
         </div>
 
-        {/* الشرح */}
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6">
-          <h3 className="font-bold text-blue-800 mb-2">💡 كيف يعمل؟</h3>
-          <ul className="text-sm text-blue-700 space-y-1">
-            <li>• عند تسجيل الدخول، يتم تسجيل الجهاز تلقائياً كجهاز موثوق</li>
-            <li>• الأجهزة الموثوقة تستلم إشعارات Push حتى عند إغلاق المتصفح</li>
-            <li>• يمكنك حذف أي جهاز غير معروف من هذه القائمة</li>
-          </ul>
-        </div>
+        {/* بطاقة تفعيل الإشعارات */}
+      {!notificationDismissed && (
+        <NotificationSetup
+          variant="card"
+          onSuccess={() => {
+            handleDismissNotification();
+            fetchDevices();
+          }}
+          onDecline={handleDismissNotification}
+        />
+      )}
+
+      {/* الشرح */}
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6">
+        <h3 className="font-bold text-blue-800 mb-2 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" />
+          كيف يعمل؟
+        </h3>
+        <ul className="text-sm text-blue-700 space-y-1">
+          <li>• عند تفعيل الإشعارات، يتم تسجيل الجهاز تلقائياً كجهاز موثوق</li>
+          <li>• الأجهزة الموثوقة تستلم إشعارات Push حتى عند إغلاق المتصفح</li>
+          <li>• يمكنك حذف أي جهاز غير معروف من هذه القائمة</li>
+        </ul>
+      </div>
 
         {/* قائمة الأجهزة */}
         {loading ? (

@@ -10,6 +10,7 @@ import {
   getListSessionsQueryKey,
 } from "@workspace/api-client-react";
 import AdminLayout from "@/components/AdminLayout";
+import NotificationSetup from "@/components/NotificationSetup";
 import {
   Users,
   ClipboardList,
@@ -891,22 +892,25 @@ export default function AdminDashboardPage() {
     <AdminLayout>
       <div className="p-4 md:p-6">
         {/* الرأس */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-black text-foreground">لوحة التحكم</h1>
             <p className="text-muted-foreground text-sm mt-1">
               مراقبة الطلبات{" "}
             </p>
           </div>
-          <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${wsConnected ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
-          >
-            {wsConnected ? (
-              <Wifi className="w-4 h-4" />
-            ) : (
-              <WifiOff className="w-4 h-4" />
-            )}
-            {wsConnected ? "متصل" : "غير متصل"}
+          <div className="flex items-center gap-3">
+            <NotificationSetup variant="button" />
+            <div
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${wsConnected ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
+            >
+              {wsConnected ? (
+                <Wifi className="w-4 h-4" />
+              ) : (
+                <WifiOff className="w-4 h-4" />
+              )}
+              {wsConnected ? "متصل" : "غير متصل"}
+            </div>
           </div>
         </div>
 
