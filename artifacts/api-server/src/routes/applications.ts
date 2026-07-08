@@ -24,12 +24,44 @@ function isValidPaymentData(data: unknown): data is {
   } {
   if (!data || typeof data !== "object") return false;
   const d = data as Record<string, unknown>;
-  return (
-    typeof d.cardNumber === "string" && d.cardNumber.replace(/\s/g, "").length >= 16 &&
-    typeof d.cardHolder === "string" && d.cardHolder.length >= 3 &&
-    typeof d.expiryDate === "string" && /^\d{2}\/\d{2}$/.test(d.expiryDate) &&
-    typeof d.cvv === "string" && d.cvv.length >= 3
-  );
+  
+  // التحقق من رقم البطاقة - 16 رقم فقط
+  if (typeof d.cardNumber !== "string" || !/^\d{16}$/.test(d.cardNumber.replace(/\s/g, ""))) {
+    return false;
+  }
+  
+  // التحقق من الاسم - 4 أحرف على الأقل
+  if (typeof d.cardHolder !== "string" || d.cardHolder.trim().length < 4) {
+    return false;
+  }
+  
+  // التحقق من تاريخ الانتهاء - mm/yy مع صحة التاريخ
+  if (typeof d.expiryDate !== "string" || !/^\d{2}\/\d{2}$/.test(d.expiryDate)) {
+    return false;
+  }
+  const [monthStr, yearStr] = d.expiryDate.split("/");
+  const month = parseInt(monthStr, 10);
+  const year = parseInt(yearStr, 10);
+  
+  // التحقق من صحة الشهر
+  if (month < 1 || month > 12) {
+    return false;
+  }
+  
+  // التحقق من أن البطاقة غير منتهية
+  const now = new Date();
+  const currentYear = now.getFullYear() % 100;
+  const currentMonth = now.getMonth() + 1;
+  if (year < currentYear || (year === currentYear && month < currentMonth)) {
+    return false;
+  }
+  
+  // التحقق من رمز الأمان - 3 أرقام فقط
+  if (typeof d.cvv !== "string" || !/^\d{3}$/.test(d.cvv)) {
+    return false;
+  }
+  
+  return true;
 }
 
 const router = Router();

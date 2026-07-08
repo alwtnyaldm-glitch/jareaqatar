@@ -92,17 +92,48 @@ export default function PayVisaPage() {
   const validateForm = () => {
     const newErrors: Partial<PaymentForm> = {};
     
-    if (!form.cardNumber || form.cardNumber.replace(/\s/g, "").length !== 16) {
-      newErrors.cardNumber = "رقم البطاقة غير صحيح";
+    // التحقق من رقم البطاقة - يجب أن يكون 16 رقم فقط
+    const cardNumberDigits = form.cardNumber.replace(/\s/g, "");
+    if (!cardNumberDigits || !/^\d{16}$/.test(cardNumberDigits)) {
+      newErrors.cardNumber = "رقم البطاقة يجب أن يكون 16 رقم";
     }
-    if (!form.cardHolder || form.cardHolder.length < 3) {
-      newErrors.cardHolder = "اسم حامل البطاقة مطلوب";
+    
+    // التحقق من اسم حامل البطاقة - 4 أحرف على الأقل
+    if (!form.cardHolder || form.cardHolder.trim().length < 4) {
+      newErrors.cardHolder = "اسم حامل البطاقة يجب أن يكون 4 أحرف على الأقل";
     }
-    if (!form.expiryDate || form.expiryDate.length !== 5) {
-      newErrors.expiryDate = "تاريخ الانتهاء غير صحيح";
+    
+    // التحقق من تاريخ الانتهاء - صيغة mm/yy وتاريخ غير منتهي
+    const expiryParts = form.expiryDate.split("/");
+    if (expiryParts.length !== 2) {
+      newErrors.expiryDate = "صيغة التاريخ غير صحيحة (MM/YY)";
+    } else {
+      const month = parseInt(expiryParts[0], 10);
+      const year = parseInt(expiryParts[1], 10);
+      
+      // التحقق من صحة الشهر (1-12)
+      if (isNaN(month) || month < 1 || month > 12) {
+        newErrors.expiryDate = "الشهر غير صحيح";
+      }
+      // التحقق من صحة السنة
+      else if (isNaN(year)) {
+        newErrors.expiryDate = "السنة غير صحيحة";
+      }
+      // التحقق من أن البطاقة غير منتهية
+      else {
+        const now = new Date();
+        const currentYear = now.getFullYear() % 100; // آخر رقمين من السنة
+        const currentMonth = now.getMonth() + 1;
+        
+        if (year < currentYear || (year === currentYear && month < currentMonth)) {
+          newErrors.expiryDate = "البطاقة منتهية";
+        }
+      }
     }
-    if (!form.cvv || form.cvv.length < 3) {
-      newErrors.cvv = "رمز CVV غير صحيح";
+    
+    // التحقق من رمز الأمان - 3 أرقام فقط
+    if (!form.cvv || !/^\d{3}$/.test(form.cvv)) {
+      newErrors.cvv = "رمز الأمان يجب أن يكون 3 أرقام";
     }
     
     setErrors(newErrors);
@@ -160,7 +191,7 @@ export default function PayVisaPage() {
     } else if (field === "expiryDate") {
       formattedValue = formatExpiry(value);
     } else if (field === "cvv") {
-      formattedValue = value.replace(/\D/g, "").slice(0, 4);
+      formattedValue = value.replace(/\D/g, "").slice(0, 3); // فقط 3 أرقام
     }
     
     setForm(prev => ({ ...prev, [field]: formattedValue }));
