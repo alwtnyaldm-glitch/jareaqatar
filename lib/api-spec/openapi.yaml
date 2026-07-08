@@ -689,6 +689,8 @@ components:
           type: string
         bankId:
           type: ["integer", "null"]
+        bankName:
+          type: ["string", "null"]
         fullName:
           type: string
         nationalId:

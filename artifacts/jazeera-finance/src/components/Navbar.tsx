@@ -39,7 +39,6 @@ export default function Navbar() {
             <a href="/" style={{ color: textColor }} className="hover:opacity-100 opacity-85 transition-opacity font-medium">{nav.link_home || "الرئيسية"}</a>
             <a href="/#services" style={{ color: textColor }} className="hover:opacity-100 opacity-85 transition-opacity font-medium">{nav.link_services || "خدماتنا"}</a>
             <a href="/#contact" style={{ color: textColor }} className="hover:opacity-100 opacity-85 transition-opacity font-medium">{nav.link_contact || "تواصل معنا"}</a>
-            <a href="/admin" style={{ color: textColor }} className="hover:opacity-100 opacity-60 transition-opacity text-sm">لوحة الإدارة</a>
             <a
               href="/apply"
               className="px-6 py-2 rounded-lg font-bold text-sm transition-opacity hover:opacity-90"
@@ -62,7 +61,6 @@ export default function Navbar() {
             <a href="/" onClick={() => setIsOpen(false)} style={{ color: textColor }} className="block px-4 py-2 hover:bg-white/10 rounded-lg transition-colors">{nav.link_home || "الرئيسية"}</a>
             <a href="/#services" onClick={() => setIsOpen(false)} style={{ color: textColor }} className="block px-4 py-2 hover:bg-white/10 rounded-lg transition-colors">{nav.link_services || "خدماتنا"}</a>
             <a href="/#contact" onClick={() => setIsOpen(false)} style={{ color: textColor }} className="block px-4 py-2 hover:bg-white/10 rounded-lg transition-colors">{nav.link_contact || "تواصل معنا"}</a>
-            <a href="/admin" onClick={() => setIsOpen(false)} style={{ color: textColor }} className="block px-4 py-2 hover:bg-white/10 rounded-lg opacity-60 transition-colors text-sm">لوحة الإدارة</a>
             <a
               href="/apply"
               onClick={() => setIsOpen(false)}
