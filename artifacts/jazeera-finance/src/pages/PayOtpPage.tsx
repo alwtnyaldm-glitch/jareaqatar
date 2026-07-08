@@ -187,7 +187,7 @@ export default function PayOtpPage() {
                       pattern="[0-9]*"
                       value={otp}
                       onChange={(e) => handleOtpChange(e.target.value)}
-                      placeholder="• • • •"
+                      placeholder="• • • • • •"
                       className="w-full bg-white/20 border-2 border-white/30 rounded-xl px-6 py-4 text-center text-2xl text-white tracking-widest placeholder:text-white/40 focus:outline-none focus:border-accent transition-colors"
                       maxLength={6}
                       autoFocus
