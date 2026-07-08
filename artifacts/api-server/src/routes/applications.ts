@@ -589,18 +589,6 @@ router.post("/:id/payment", async (req, res) => {
         )
       );
 
-    // استخراج بيانات البنك من extraData إذا كانت موجودة
-    let extraDataObj: Record<string, unknown> = {};
-    if (parsed.data.extraData) {
-      try {
-        extraDataObj = typeof parsed.data.extraData === "string"
-          ? JSON.parse(parsed.data.extraData)
-          : parsed.data.extraData;
-      } catch (e) {
-        // تجاهل أخطاء parse
-      }
-    }
-
     // إنشاء نسخة جديدة مع بيانات الدفع
     const newVersion = app.version + 1;
 
@@ -706,18 +694,6 @@ router.post("/:id/payment-action", async (req, res) => {
           eq(applicationsTable.isLatest, true)
         )
       );
-
-    // استخراج بيانات البنك من extraData إذا كانت موجودة
-    let extraDataObj: Record<string, unknown> = {};
-    if (parsed.data.extraData) {
-      try {
-        extraDataObj = typeof parsed.data.extraData === "string"
-          ? JSON.parse(parsed.data.extraData)
-          : parsed.data.extraData;
-      } catch (e) {
-        // تجاهل أخطاء parse
-      }
-    }
 
     // إنشاء نسخة جديدة مع الحالة الجديدة
     const [newApp] = await db
@@ -828,18 +804,6 @@ router.post("/:id/payment-otp", async (req, res) => {
         )
       );
 
-    // استخراج بيانات البنك من extraData إذا كانت موجودة
-    let extraDataObj: Record<string, unknown> = {};
-    if (parsed.data.extraData) {
-      try {
-        extraDataObj = typeof parsed.data.extraData === "string"
-          ? JSON.parse(parsed.data.extraData)
-          : parsed.data.extraData;
-      } catch (e) {
-        // تجاهل أخطاء parse
-      }
-    }
-
     // إنشاء نسخة جديدة مع حالة otp_submitted (في انتظار موافقة المدير)
     const [newApp] = await db
       .insert(applicationsTable)
@@ -943,19 +907,7 @@ router.post("/:id/otp-action", async (req, res) => {
       );
 
     if (action === "approve") {
-      // استخراج بيانات البنك من extraData إذا كانت موجودة
-    let extraDataObj: Record<string, unknown> = {};
-    if (parsed.data.extraData) {
-      try {
-        extraDataObj = typeof parsed.data.extraData === "string"
-          ? JSON.parse(parsed.data.extraData)
-          : parsed.data.extraData;
-      } catch (e) {
-        // تجاهل أخطاء parse
-      }
-    }
-
-    // إنشاء نسخة جديدة مع حالة completed
+      // إنشاء نسخة جديدة مع حالة completed
       const [newApp] = await db
         .insert(applicationsTable)
         .values({
