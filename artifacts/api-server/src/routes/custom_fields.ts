@@ -128,10 +128,24 @@ router.patch("/:pageKey/:fieldId", async (req, res) => {
   const fieldId = Number(req.params.fieldId);
   const { pageKey } = req.params;
   try {
+    // فقط الحقول المسموح بتعديلها
+    const allowedFields = ['fieldKey', 'labelAr', 'fieldType', 'placeholder', 'options', 'isRequired', 'sortOrder'];
+    const updateData: Record<string, any> = {};
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) {
+        updateData[key] = req.body[key];
+      }
+    }
+    
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: "لا توجد بيانات للتعديل" });
+    }
+    
     const [field] = await db.update(customFieldsTable)
-      .set(req.body)
+      .set(updateData)
       .where(eq(customFieldsTable.id, fieldId))
       .returning();
+      
     if (!field) return res.status(404).json({ error: "الحقل غير موجود" });
 
     const allFields = await db.select().from(customFieldsTable)
